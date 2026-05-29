@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.snapshot_user_settings() FROM PUBLIC, anon, authenticated;
