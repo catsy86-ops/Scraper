@@ -102,6 +102,10 @@
           <span class="nav-icon">📡</span> Na żywo
           <span class="nav-badge live-badge">LIVE</span>
         </a>
+        <a href="#" class="nav-item" data-section="community">
+          <span class="nav-icon">👥</span> Społeczność
+          <span class="nav-badge community-badge">LIVE</span>
+        </a>
       </nav>
       <div class="sidebar-footer">
         <p>Szczecin © 2026</p>
@@ -352,6 +356,77 @@
         </div>
       </section>
 
+      <!-- COMMUNITY SECTION -->
+      <section id="section-community" class="section hidden">
+        <div class="section-content">
+          <div class="section-hero">
+            <h2>👥 Społeczność Łuczniczej</h2>
+            <p>Dane na żywo: mieszkańcy, eventy, grupy, recenzje</p>
+          </div>
+
+          <!-- Stats Dashboard -->
+          <div class="community-stats">
+            <div class="stat-card">
+              <div class="stat-icon">👥</div>
+              <div class="stat-content">
+                <div class="stat-value" id="popStat">4,250</div>
+                <div class="stat-label">Mieszkańcy</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">🏠</div>
+              <div class="stat-content">
+                <div class="stat-value" id="houseStat">1,680</div>
+                <div class="stat-label">Gospodarstw</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">👶</div>
+              <div class="stat-content">
+                <div class="stat-value" id="ageStat">38 lat</div>
+                <div class="stat-label">Średni Wiek</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">📊</div>
+              <div class="stat-content">
+                <div class="stat-value" id="densityStat">10.1K</div>
+                <div class="stat-label">Gęstość/km²</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Activity -->
+          <h3 class="section-subtitle">🔴 Aktywność Na Żywo</h3>
+          <div class="live-activity-list" id="liveActivityList"></div>
+
+          <!-- Groups -->
+          <h3 class="section-subtitle">💬 Aktywne Grupy</h3>
+          <div class="groups-grid" id="groupsList"></div>
+
+          <!-- Events -->
+          <h3 class="section-subtitle">🎉 Nadchodzące Eventy</h3>
+          <div class="events-community-list" id="eventsCommunityList"></div>
+
+          <!-- Reviews -->
+          <h3 class="section-subtitle">⭐ Opinie Mieszkańców</h3>
+          <div class="reviews-community-list" id="reviewsCommunityList"></div>
+
+          <!-- Recommendations -->
+          <h3 class="section-subtitle">💡 Rekomendacje</h3>
+          <div class="recommendations-list" id="recommendationsList"></div>
+
+          <!-- News -->
+          <h3 class="section-subtitle">📰 Wiadomości z Okolicy</h3>
+          <div class="news-list" id="newsList"></div>
+
+          <!-- Demographics Chart -->
+          <h3 class="section-subtitle">📈 Rozkład Wiekowy</h3>
+          <div class="demographics-chart" id="demographicsChart"></div>
+
+        </div>
+      </section>
+
     </main>
 
     <!-- BOTTOM NAV (mobile) -->
@@ -396,7 +471,13 @@
         </svg>
         <span class="bnav-live">Na żywo</span>
       </button>
-    </nav>
+      <button class="bnav-btn" data-section="community">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87m-4-12a4 4 0 0 1 0 7.75"/>
+        </svg>
+        <span>Społeczność</span>
+      </button>
 
     <!-- PLACE DETAIL MODAL -->
     <div class="modal-overlay hidden" id="modalOverlay">
@@ -481,6 +562,8 @@
   </div><!-- /#app -->
 
   <script src="data.js"></script>
+  <script src="community-data.js"></script>
+  <script src="community-ui.js"></script>
   <script src="app.js"></script>
   <script src="live.js"></script>
   <script src="google-maps.js"></script>

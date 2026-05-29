@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderInfo();
       renderTransport();
       renderEvents();
+      renderCommunity();
       updateStatTotal();
     }, 500);
   }, 2200);
