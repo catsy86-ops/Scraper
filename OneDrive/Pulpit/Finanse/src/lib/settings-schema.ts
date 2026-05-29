@@ -44,6 +44,11 @@ export const settingsSchema = z
     obligations_growth_pct: numInRange(0, 15, "Wzrost zobowiązań"),
     raise_month: intInRange(1, 24, "Miesiąc podwyżki"),
     raise_amount: numInRange(0, 5000, "Skokowa podwyżka"),
+
+    // Cel oszczędnościowy
+    goal_name: z.string().min(1, "Podaj nazwę celu").max(120, "Nazwa celu jest za długa"),
+    goal_target: numInRange(1, 10_000_000, "Cel oszczędnościowy"),
+    goal_current: numInRange(0, 10_000_000, "Odłożona kwota"),
   })
   .superRefine((s, ctx) => {
     if (s.sim_obligations > s.sim_income) {
@@ -51,6 +56,13 @@ export const settingsSchema = z
         code: z.ZodIssueCode.custom,
         path: ["sim_obligations"],
         message: "Zobowiązania nie mogą przekraczać miesięcznego wpływu",
+      });
+    }
+    if (s.goal_current > s.goal_target) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["goal_current"],
+        message: "Odłożona kwota nie może przekraczać celu",
       });
     }
   });
@@ -66,6 +78,8 @@ export const FIELD_RANGES = {
   obligations_growth_pct: { min: 0, max: 15 },
   raise_month: { min: 1, max: 24, int: true },
   raise_amount: { min: 0, max: 5000 },
+  goal_target: { min: 1, max: 10_000_000 },
+  goal_current: { min: 0, max: 10_000_000 },
 } as const;
 
 const clampNum = (v: number, min: number, max: number, int = false) => {
@@ -121,6 +135,8 @@ export function coercePatch(
   fixNumber("obligations_growth_pct", "Wzrost zobowiązań");
   fixNumber("raise_month", "Miesiąc podwyżki");
   fixNumber("raise_amount", "Skokowa podwyżka");
+  fixNumber("goal_target", "Cel oszczędnościowy");
+  fixNumber("goal_current", "Odłożona kwota");
 
   if ("roundup_rule" in out) {
     const snapped = snapTo(out.roundup_rule, ROUNDUP_RULES, "nearest1");

@@ -4,6 +4,7 @@ import { Coins, Zap, Trophy, Sparkles, ArrowUpRight, Check, Loader2, Lock } from
 import { Link } from "@tanstack/react-router";
 import { recentTransactions, formatPLN } from "@/lib/finance-data";
 import { useAuth } from "@/hooks/useAuth";
+import { useTransactions } from "@/hooks/useTransactions";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useState } from "react";
 
@@ -20,24 +21,30 @@ export function SaveMoneyHub() {
   const [tab, setTab] = useState<Tab>("roundup");
   const { user } = useAuth();
   const { settings, update, loading, saving } = useUserSettings(user?.id);
+  const { transactions } = useTransactions(user?.id);
 
-  const roundups = useMemo(
-    () =>
-      recentTransactions
-        .filter((t) => t.amount < 0)
-        .map((t) => {
-          const abs = Math.abs(t.amount);
-          const up = Math.ceil(abs) - abs;
-          return { id: t.id, title: t.title, amount: abs, roundup: +up.toFixed(2) };
-        })
-        .filter((r) => r.roundup > 0),
-    [],
-  );
+  const roundups = useMemo(() => {
+    // Używamy prawdziwych transakcji użytkownika jeśli dostępne, inaczej demo
+    const source = user && transactions.length > 0
+      ? transactions
+          .filter((t) => Number(t.amount) < 0)
+          .map((t) => ({ id: t.id, title: t.title, amount: Number(t.amount) }))
+      : recentTransactions
+          .filter((t) => t.amount < 0)
+          .map((t) => ({ id: t.id, title: t.title, amount: t.amount }));
+
+    return source
+      .map((t) => {
+        const abs = Math.abs(t.amount);
+        const up = Math.ceil(abs) - abs;
+        return { id: t.id, title: t.title, amount: abs, roundup: +up.toFixed(2) };
+      })
+      .filter((r) => r.roundup > 0);
+  }, [user, transactions]);
   const roundupTotal = roundups.reduce((s, r) => s + r.roundup, 0);
   const monthlyEstimate = roundupTotal * 12;
 
-  const incomeAvg = 8650;
-  const autoMonthly = settings.auto_save_enabled ? (incomeAvg * settings.auto_save_percent) / 100 : 0;
+  const autoMonthly = settings.auto_save_enabled ? (settings.sim_income * settings.auto_save_percent) / 100 : 0;
   const autoYear = autoMonthly * 12;
 
   const toggleChallenge = (id: string) => {

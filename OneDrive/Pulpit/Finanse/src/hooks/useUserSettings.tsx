@@ -23,6 +23,10 @@ export type UserSettings = {
   obligations_growth_pct: number;
   raise_month: number;
   raise_amount: number;
+  // Cel oszczędnościowy
+  goal_name: string;
+  goal_target: number;
+  goal_current: number;
 };
 
 const DEFAULTS: UserSettings = {
@@ -40,10 +44,14 @@ const DEFAULTS: UserSettings = {
   obligations_growth_pct: 3,
   raise_month: 12,
   raise_amount: 0,
+  // Cel oszczędnościowy
+  goal_name: "Wakacje 2026 · Japonia",
+  goal_target: 25000,
+  goal_current: 0,
 };
 
 const COLUMNS =
-  "auto_save_enabled, auto_save_percent, enabled_challenges, roundup_enabled, roundup_rule, roundup_multiplier, interest_pct, sim_income, sim_obligations, advanced_mode, income_growth_pct, obligations_growth_pct, raise_month, raise_amount";
+  "auto_save_enabled, auto_save_percent, enabled_challenges, roundup_enabled, roundup_rule, roundup_multiplier, interest_pct, sim_income, sim_obligations, advanced_mode, income_growth_pct, obligations_growth_pct, raise_month, raise_amount, goal_name, goal_target, goal_current";
 
 export function useUserSettings(userId: string | undefined) {
   const [settings, setSettings] = useState<UserSettings>(DEFAULTS);

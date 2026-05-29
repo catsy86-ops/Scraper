@@ -8,6 +8,7 @@ import {
 import { AppNav } from "@/components/fiszu/AppNav";
 import { recentTransactions, formatPLN } from "@/lib/finance-data";
 import { useAuth } from "@/hooks/useAuth";
+import { useTransactions } from "@/hooks/useTransactions";
 import { useUserSettings, type UserSettings } from "@/hooks/useUserSettings";
 import { VersionHistory } from "@/components/fiszu/VersionHistory";
 
@@ -51,6 +52,7 @@ const FIELD_LABELS: Partial<Record<keyof UserSettings, string>> = {
 function SimulatorPage() {
   const { user } = useAuth();
   const { settings, update, loading, saving, synced, syncedAt, errors } = useUserSettings(user?.id);
+  const { transactions } = useTransactions(user?.id);
   const [versionsRefresh, setVersionsRefresh] = useState(0);
   const [showLoaded, setShowLoaded] = useState(false);
   const [validationMode, setValidationMode] = useState<"onChange" | "onBlur">("onChange");
@@ -103,7 +105,18 @@ function SimulatorPage() {
   const setInterestPct = (v: number) => update({ interest_pct: v });
 
 
-  const expenses = useMemo(() => recentTransactions.filter((t) => t.amount < 0), []);
+  const expenses = useMemo(() => {
+    // Jeśli użytkownik jest zalogowany i ma transakcje — używamy jego danych.
+    // W przeciwnym razie fallback na demo.
+    if (user && transactions.length > 0) {
+      return transactions
+        .filter((t) => Number(t.amount) < 0)
+        .map((t) => ({ amount: Number(t.amount), date: t.occurred_on }));
+    }
+    return recentTransactions
+      .filter((t) => t.amount < 0)
+      .map((t) => ({ amount: t.amount, date: t.date }));
+  }, [user, transactions]);
 
   // Realne obliczenia: sumujemy zaokrąglenia ze wszystkich zapisanych transakcji
   // i normalizujemy do miesiąca na podstawie faktycznego zakresu dat.
@@ -509,7 +522,7 @@ function SimulatorPage() {
               </Field>
 
               <p className="mt-3 rounded-lg border border-border bg-secondary/30 p-2 text-[11px] leading-relaxed text-muted-foreground">
-                Liczone z <span className="font-semibold text-foreground">{roundupStats.txCount}</span> zapisanych transakcji
+                Liczone z <span className="font-semibold text-foreground">{roundupStats.txCount}</span> {user && transactions.length > 0 ? "Twoich" : "demo"} transakcji
                 (zakres ~{roundupStats.spanDays} dni). Suma zaokrągleń w próbce: {formatPLN(roundupStats.totalInSample)},
                 średnio {formatPLN(roundupStats.avgPerTx)} / transakcja.
               </p>
