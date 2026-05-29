@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <meta name="description" content="Interaktywny przewodnik po ulicy Łuczniczej i Tarczowej w Szczecinie z mapą 3D" />
+  <title>Przewodnik — Łucznicza & Tarczowa, Szczecin</title>
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- Mapbox GL JS v3 -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
+
+  <!-- Google Maps API (Street View + Panoramic) -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC3aLJJFzlRXfWz9K9wQ8XzLt5rVqpQxE8&libraries=places,geocoding"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===== SPLASH SCREEN ===== -->
+  <div id="splash">
+    <div class="splash-content">
+      <div class="splash-icon">🏹</div>
+      <h1 class="splash-title">Łucznicza & Tarczowa</h1>
+      <p class="splash-sub">Szczecin · Przewodnik Interaktywny</p>
+      <div class="splash-loader">
+        <div class="loader-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MAIN APP ===== -->
+  <div id="app" class="hidden">
+
+    <!-- HEADER -->
+    <header class="header">
+      <div class="header-left">
+        <button class="menu-btn" id="menuBtn" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
+        <div class="header-title">
+          <span class="header-icon">🏹</span>
+          <div>
+            <h1>Łucznicza & Tarczowa</h1>
+            <p>Szczecin</p>
+          </div>
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="icon-btn" id="searchBtn" aria-label="Szukaj">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="themeBtn" aria-label="Zmień motyw">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- SEARCH BAR -->
+    <div class="search-bar hidden" id="searchBar">
+      <input type="text" id="searchInput" placeholder="Szukaj miejsca, kategorii..." autocomplete="off" />
+      <button id="searchClose">✕</button>
+    </div>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h2>Nawigacja</h2>
+        <button class="close-sidebar" id="closeSidebar">✕</button>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" data-section="map">
+          <span class="nav-icon">🗺️</span> Mapa 3D
+        </a>
+        <a href="#" class="nav-item" data-section="places">
+          <span class="nav-icon">📍</span> Miejsca
+        </a>
+        <a href="#" class="nav-item" data-section="routes">
+          <span class="nav-icon">🚶</span> Trasy
+        </a>
+        <a href="#" class="nav-item" data-section="info">
+          <span class="nav-icon">ℹ️</span> O dzielnicy
+        </a>
+        <a href="#" class="nav-item" data-section="transport">
+          <span class="nav-icon">🚌</span> Transport
+        </a>
+        <a href="#" class="nav-item" data-section="events">
+          <span class="nav-icon">🎉</span> Wydarzenia
+        </a>
+        <a href="#" class="nav-item" data-section="live">
+          <span class="nav-icon">📡</span> Na żywo
+          <span class="nav-badge live-badge">LIVE</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <p>Szczecin © 2026</p>
+      </div>
+    </aside>
+    <div class="sidebar-overlay hidden" id="sidebarOverlay"></div>
+
+    <!-- MAIN CONTENT -->
+    <main class="main">
+
+      <!-- MAP SECTION -->
+      <section id="section-map" class="section active">
+        <div class="map-container">
+          <!-- Dual Map View: Mapbox 3D + Google Street View -->
+          <div id="map" class="map-main"></div>
+          
+          <!-- Street View Panoramic (hidden by default, toggle to show) -->
+          <div id="streetViewContainer" class="street-view-container hidden">
+            <!-- Street View will be rendered here by Google Maps API -->
+          </div>
+
+          <!-- Map Controls -->
+          <div class="map-controls">
+            <button class="map-ctrl-btn active" id="btn3D" title="Widok 3D">3D</button>
+            <button class="map-ctrl-btn" id="btnSatellite" title="Satelita">🛰️</button>
+            <button class="map-ctrl-btn" id="btnMapStreet" title="Ulice">🗺️</button>
+            <button class="map-ctrl-btn" id="btnLocate" title="Moja lokalizacja">📍</button>
+            <button class="map-ctrl-btn" id="btnFly" title="Animacja lotu">✈️</button>
+            <button class="map-ctrl-btn" id="btnStreetView" title="Street View (Google)">📸</button>
+          </div>
+
+          <!-- Panoramic Controls (Street View) -->
+          <div class="panoramic-controls hidden" id="panoramicControls">
+            <div class="pano-control-group">
+              <button id="svZoomIn" title="Zoom in" class="pano-btn">🔍+</button>
+              <button id="svZoomOut" title="Zoom out" class="pano-btn">🔍−</button>
+            </div>
+            <div class="pano-control-group">
+              <button id="svRotateLeft" title="Rotate left" class="pano-btn">⟲</button>
+              <button id="svRotateRight" title="Rotate right" class="pano-btn">⟳</button>
+            </div>
+            <div class="pano-control-group">
+              <button id="svShowLinks" title="Show directions" class="pano-btn">🧭</button>
+              <button id="svReset" title="Reset view" class="pano-btn">↺</button>
+            </div>
+          </div>
+
+          <!-- POV Display (Street View info) -->
+          <div class="pov-display hidden" id="povDisplay"></div>
+          
+          <!-- Position Display (Street View coordinates) -->
+          <div class="position-display hidden" id="positionDisplay"></div>
+
+          <!-- POI Street View Info Card -->
+          <div class="poi-street-view-info hidden" id="poiStreetViewInfo"></div>
+
+          <!-- Street View Navigation -->
+          <div class="street-view-navigation hidden" id="streetViewNavigation"></div>
+
+          <!-- Street View Links -->
+          <div class="street-view-links hidden" id="streetViewLinks"></div>
+
+          <!-- Category Filter -->
+          <div class="category-filter">
+            <button class="cat-btn active" data-cat="all">Wszystkie</button>
+            <button class="cat-btn" data-cat="sport">⚽ Sport</button>
+            <button class="cat-btn" data-cat="food">🍽️ Jedzenie</button>
+            <button class="cat-btn" data-cat="shop">🛒 Sklepy</button>
+            <button class="cat-btn" data-cat="park">🌳 Parki</button>
+            <button class="cat-btn" data-cat="service">🔧 Usługi</button>
+            <button class="cat-btn" data-cat="edu">📚 Edukacja</button>
+          </div>
+
+          <!-- Map Legend -->
+          <div class="map-legend" id="mapLegend">
+            <h4>Legenda</h4>
+            <div class="legend-item"><span class="legend-dot sport"></span> Sport</div>
+            <div class="legend-item"><span class="legend-dot food"></span> Jedzenie</div>
+            <div class="legend-item"><span class="legend-dot shop"></span> Sklepy</div>
+            <div class="legend-item"><span class="legend-dot park"></span> Parki</div>
+            <div class="legend-item"><span class="legend-dot service"></span> Usługi</div>
+            <div class="legend-item"><span class="legend-dot edu"></span> Edukacja</div>
+          </div>
+
+          <!-- Stats bar -->
+          <div class="map-stats">
+            <div class="stat-item">
+              <span class="stat-num" id="statTotal">0</span>
+              <span class="stat-label">Miejsc</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-num">2</span>
+              <span class="stat-label">Ulice</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-num">3</span>
+              <span class="stat-label">Trasy</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PLACES SECTION -->
+      <section id="section-places" class="section hidden">
+        <div class="section-content">
+          <div class="section-hero">
+            <h2>📍 Miejsca w okolicy</h2>
+            <p>Odkryj najciekawsze punkty przy ulicy Łuczniczej i Tarczowej</p>
+          </div>
+          <div class="filter-tabs" id="placesFilter">
+            <button class="filter-tab active" data-filter="all">Wszystkie</button>
+            <button class="filter-tab" data-filter="sport">Sport</button>
+            <button class="filter-tab" data-filter="food">Jedzenie</button>
+            <button class="filter-tab" data-filter="shop">Sklepy</button>
+            <button class="filter-tab" data-filter="park">Parki</button>
+            <button class="filter-tab" data-filter="service">Usługi</button>
+            <button class="filter-tab" data-filter="edu">Edukacja</button>
+          </div>
+          <div class="places-grid" id="placesGrid"></div>
+        </div>
+      </section>
+
+      <!-- ROUTES SECTION -->
+      <section id="section-routes" class="section hidden">
+        <div class="section-content">
+          <div class="section-hero">
+            <h2>🚶 Trasy spacerowe</h2>
+            <p>Zaplanuj swój spacer po okolicy</p>
+          </div>
+          <div class="routes-list" id="routesList"></div>
+        </div>
+      </section>
+
+      <!-- INFO SECTION -->
+      <section id="section-info" class="section hidden">
+        <div class="section-content">
+          <div class="section-hero">
+            <h2>ℹ️ O dzielnicy</h2>
+            <p>Historia i charakterystyka obszaru Łucznicza–Tarczowa</p>
+          </div>
+          <div class="info-cards" id="infoCards"></div>
+        </div>
+      </section>
+
+      <!-- TRANSPORT SECTION -->
+      <section id="section-transport" class="section hidden">
+        <div class="section-content">
+          <div class="section-hero">
+            <h2>🚌 Transport publiczny</h2>
+            <p>Jak dojechać na Łuczniczą i Tarczową</p>
+          </div>
+          <div class="transport-grid" id="transportGrid"></div>
+        </div>
+      </section>
+
+      <!-- EVENTS SECTION -->
+      <section id="section-events" class="section hidden">
+        <div class="section-content">
+          <div class="section-hero">
+            <h2>🎉 Wydarzenia</h2>
+            <p>Co się dzieje w okolicy</p>
+          </div>
+          <div class="events-list" id="eventsList"></div>
+        </div>
+      </section>
+
+      <!-- LIVE SECTION -->
+      <section id="section-live" class="section hidden">
+        <div class="section-content">
+          <div class="section-hero">
+            <h2>📡 Na żywo</h2>
+            <p>Dane aktualizowane w czasie rzeczywistym</p>
+          </div>
+
+          <!-- Live Weather Full -->
+          <div class="live-card" id="liveWeatherCard">
+            <div class="live-card-header">
+              <span class="live-card-icon">🌤️</span>
+              <div>
+                <h3>Pogoda — Szczecin</h3>
+                <span class="live-tag"><span class="live-dot"></span> Aktualizacja co 10 min</span>
+              </div>
+              <button class="live-refresh-btn" id="refreshWeather">🔄</button>
+            </div>
+            <div id="liveWeatherFull">
+              <div class="live-skeleton"></div>
+            </div>
+          </div>
+
+          <!-- Live Air Quality -->
+          <div class="live-card" id="liveAqiCard">
+            <div class="live-card-header">
+              <span class="live-card-icon">🌬️</span>
+              <div>
+                <h3>Jakość powietrza</h3>
+                <span class="live-tag"><span class="live-dot"></span> Open-Meteo Air Quality API</span>
+              </div>
+              <button class="live-refresh-btn" id="refreshAqi">🔄</button>
+            </div>
+            <div id="liveAqiFull">
+              <div class="live-skeleton"></div>
+            </div>
+          </div>
+
+          <!-- Live Transport -->
+          <div class="live-card" id="liveTransportCard">
+            <div class="live-card-header">
+              <span class="live-card-icon">🚌</span>
+              <div>
+                <h3>Transport publiczny</h3>
+                <span class="live-tag"><span class="live-dot"></span> Symulacja rozkładu ZDiTM</span>
+              </div>
+              <button class="live-refresh-btn" id="refreshTransport">🔄</button>
+            </div>
+            <div id="liveTransportFull">
+              <div class="live-skeleton"></div>
+            </div>
+          </div>
+
+          <!-- Live Forecast -->
+          <div class="live-card">
+            <div class="live-card-header">
+              <span class="live-card-icon">📅</span>
+              <div>
+                <h3>Prognoza 7-dniowa</h3>
+                <span class="live-tag"><span class="live-dot"></span> Open-Meteo Forecast API</span>
+              </div>
+            </div>
+            <div id="liveForecast">
+              <div class="live-skeleton"></div>
+            </div>
+          </div>
+
+          <!-- Live Sunrise/Sunset -->
+          <div class="live-card">
+            <div class="live-card-header">
+              <span class="live-card-icon">🌅</span>
+              <div>
+                <h3>Wschód / Zachód słońca</h3>
+                <span class="live-tag"><span class="live-dot"></span> Dziś w Szczecinie</span>
+              </div>
+            </div>
+            <div id="liveSunTimes" class="sun-times-grid">
+              <div class="live-skeleton"></div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- BOTTOM NAV (mobile) -->
+    <nav class="bottom-nav">
+      <button class="bnav-btn active" data-section="map">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+        </svg>
+        <span>Mapa</span>
+      </button>
+      <button class="bnav-btn" data-section="places">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+        <span>Miejsca</span>
+      </button>
+      <button class="bnav-btn" data-section="routes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 3h6l6 18h6"/><path d="M14 3h7"/>
+        </svg>
+        <span>Trasy</span>
+      </button>
+      <button class="bnav-btn" data-section="info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 16v-4m0-4h.01"/>
+        </svg>
+        <span>Info</span>
+      </button>
+      <button class="bnav-btn" data-section="transport">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="1" y="3" width="15" height="13" rx="2"/>
+          <path d="M16 8h4l3 3v5h-7V8z"/>
+          <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+        </svg>
+        <span>Transport</span>
+      </button>
+      <button class="bnav-btn" data-section="live">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
+        </svg>
+        <span class="bnav-live">Na żywo</span>
+      </button>
+    </nav>
+
+    <!-- PLACE DETAIL MODAL -->
+    <div class="modal-overlay hidden" id="modalOverlay">
+      <div class="modal" id="placeModal">
+        <button class="modal-close" id="modalClose">✕</button>
+        <div class="modal-content" id="modalContent"></div>
+      </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div class="toast hidden" id="toast"></div>
+
+    <!-- LIVE WEATHER WIDGET (on map) -->
+    <div class="weather-widget" id="weatherWidget">
+      <div class="weather-loading" id="weatherLoading"><div class="w-spinner"></div></div>
+      <div class="weather-data hidden" id="weatherData">
+        <div class="w-top">
+          <span class="w-icon" id="wIcon">☀️</span>
+          <div class="w-temps">
+            <span class="w-temp" id="wTemp">--°</span>
+            <span class="w-feels" id="wFeels">odczuwalna --°</span>
+          </div>
+        </div>
+        <div class="w-bottom">
+          <span class="w-desc" id="wDesc">Ładowanie...</span>
+          <span class="w-wind" id="wWind">💨 --</span>
+        </div>
+        <div class="w-extra">
+          <span id="wHumidity">💧 --%</span>
+          <span id="wPressure">🌡️ -- hPa</span>
+          <span id="wUV">☀️ UV --</span>
+        </div>
+        <div class="w-updated" id="wUpdated">-- : --</div>
+      </div>
+    </div>
+
+    <!-- LIVE CLOCK WIDGET -->
+    <div class="clock-widget" id="clockWidget">
+      <div class="clock-time" id="clockTime">--:--:--</div>
+      <div class="clock-date" id="clockDate">-- --- ----</div>
+      <div class="clock-live"><span class="live-dot"></span> NA ŻYWO</div>
+    </div>
+
+    <!-- LIVE TRANSPORT PANEL (floating) -->
+    <div class="live-transport-panel hidden" id="liveTransportPanel">
+      <div class="ltp-header">
+        <span>🚌 Odjazdy na żywo</span>
+        <button id="ltpClose">✕</button>
+      </div>
+      <div class="ltp-body" id="ltpBody">
+        <div class="ltp-loading">Pobieranie rozkładu...</div>
+      </div>
+      <div class="ltp-footer">
+        <span class="ltp-updated" id="ltpUpdated">Aktualizacja: --</span>
+        <button class="ltp-refresh" id="ltpRefresh">🔄 Odśwież</button>
+      </div>
+    </div>
+
+    <!-- LIVE FEED TICKER -->
+    <div class="live-ticker" id="liveTicker">
+      <span class="ticker-label"><span class="live-dot"></span> NA ŻYWO</span>
+      <div class="ticker-wrap">
+        <div class="ticker-track" id="tickerTrack">
+          <span class="ticker-item">Ładowanie danych na żywo...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- AIR QUALITY WIDGET -->
+    <div class="aqi-widget" id="aqiWidget">
+      <div class="aqi-label">Jakość powietrza</div>
+      <div class="aqi-value" id="aqiValue">--</div>
+      <div class="aqi-desc" id="aqiDesc">Ładowanie...</div>
+      <div class="aqi-bar"><div class="aqi-fill" id="aqiFill" style="width:0%"></div></div>
+    </div>
+
+    <!-- LIVE TRANSPORT BTN (on map) -->
+    <button class="live-transport-btn" id="liveTransportBtn" title="Odjazdy na żywo">
+      🚌 <span class="live-dot"></span>
+    </button>
+
+  </div><!-- /#app -->
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+  <script src="live.js"></script>
+  <script src="google-maps.js"></script>
+</body>
+</html>
