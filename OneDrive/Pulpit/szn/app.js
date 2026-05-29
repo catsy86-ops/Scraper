@@ -781,9 +781,8 @@ function showToast(msg) {
   }, 3000);
 }
 
-// ===== RENDER COMMUNITY (placeholder — actual logic in community-ui.js) =====
+// ===== RENDER COMMUNITY (handled by community-ui.js auto-init) =====
 function renderCommunity() {
-  if (window.communityUI && window.communityUI.init) {
-    window.communityUI.init();
-  }
+  // community-ui.js initializes itself via DOMContentLoaded
+  // Nothing needed here
 }
