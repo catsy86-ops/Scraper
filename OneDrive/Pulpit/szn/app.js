@@ -1,21 +1,15 @@
-/* ===== SZCZECIN GUIDE — MAIN APP ===== */
+/* ===== SZCZECIN GUIDE — MAIN APP (Leaflet Edition) ===== */
 'use strict';
-
-// ===== CONFIG =====
-// Mapbox public token — Replace with your own from mapbox.com
-// Get token from: https://account.mapbox.com/tokens
-// Set in browser console: localStorage.setItem('mapboxToken', 'your_token_here')
-mapboxgl.accessToken = localStorage.getItem('mapboxToken') || '';
 
 // ===== STATE =====
 const state = {
   currentSection: 'map',
   currentCat: 'all',
   currentFilter: 'all',
-  is3D: true,
   isDark: true,
-  mapStyle: 'standard',
   markers: [],
+  leafletLayers: [],
+  routePolylines: [],
   map: null,
   flyInterval: null,
   searchQuery: ''
@@ -39,155 +33,6 @@ const CAT_BG = {
   service: 'rgba(162,155,254,0.15)',
   edu: 'rgba(253,121,168,0.15)'
 };
-
-// ===== LOAD LEAFLET MAP IMMEDIATELY =====
-function loadLeafletMapNow() {
-  console.log('📥 Ładowanie Leaflet + OpenStreetMap...');
-  
-  const mapContainer = document.getElementById('map');
-  if (!mapContainer) return;
-
-  // Load Leaflet CSS
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
-  document.head.appendChild(link);
-
-  // Load Leaflet JS
-  const script = document.createElement('script');
-  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
-  script.onload = () => {
-    console.log('✅ Leaflet załadowany - inicjalizacja mapy...');
-    
-    // Initialize Leaflet map
-    const map = L.map('map').setView([53.4025, 14.5520], 15);
-    
-    // Add OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 19,
-      minZoom: 1
-    }).addTo(map);
-
-    // Add layer control
-    L.control.layers(
-      {
-        'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap',
-          maxZoom: 19
-        }),
-        'Stamen Toner': L.tileLayer('https://tiles.stadiamaps.com/tiles/stamen_toner/{z}/{x}/{y}.png', {
-          attribution: '© Stadia Maps',
-          maxZoom: 18
-        }),
-        'Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-          attribution: '© Esri',
-          maxZoom: 18
-        })
-      },
-      null,
-      { position: 'topleft', collapsed: true }
-    ).addTo(map);
-
-    // Add controls
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
-    L.control.scale({ position: 'bottomleft' }).addTo(map);
-
-    // Add highlight area
-    const bounds = [
-      [53.4005, 14.5490],
-      [53.4055, 14.5555]
-    ];
-    L.rectangle(bounds, {
-      color: '#6c63ff',
-      weight: 2,
-      opacity: 0.5,
-      fill: true,
-      fillColor: '#6c63ff',
-      fillOpacity: 0.06,
-      dashArray: '4, 2'
-    }).addTo(map);
-
-    // Add POI markers
-    if (APP_DATA && APP_DATA.places) {
-      APP_DATA.places.forEach(place => {
-        const CAT_COLORS = {
-          sport: '#ff6b6b',
-          food: '#ffd93d',
-          shop: '#6bcb77',
-          park: '#4ecdc4',
-          service: '#a29bfe',
-          edu: '#fd79a8'
-        };
-
-        const iconHtml = `
-          <div style="
-            width: 40px;
-            height: 40px;
-            background: ${CAT_COLORS[place.cat]};
-            border-radius: 50% 50% 50% 0;
-            transform: rotate(-45deg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            border: 2px solid rgba(255,255,255,0.3);
-            font-size: 18px;
-          ">
-            <div style="transform: rotate(45deg);">${place.emoji}</div>
-          </div>
-        `;
-
-        const icon = L.divIcon({
-          html: iconHtml,
-          iconSize: [40, 40],
-          iconAnchor: [20, 40],
-          popupAnchor: [0, -40]
-        });
-
-        const marker = L.marker([place.coords[1], place.coords[0]], { icon: icon });
-        marker.bindPopup(`
-          <div style="font-size: 12px;">
-            <strong>${place.name}</strong><br>
-            📍 ${place.addr}<br>
-            <button onclick="openPlaceModal(${place.id})" style="padding:4px 8px;background:${CAT_COLORS[place.cat]};color:white;border:none;border-radius:4px;cursor:pointer;margin-top:4px;">
-              Szczegóły
-            </button>
-          </div>
-        `);
-        marker.addTo(map);
-      });
-    }
-
-    // Add routes
-    if (APP_DATA && APP_DATA.routes) {
-      APP_DATA.routes.forEach(route => {
-        L.polyline(
-          route.coords.map(coord => [coord[1], coord[0]]),
-          {
-            color: route.color,
-            weight: 4,
-            opacity: 0.8,
-            dashArray: '8, 4'
-          }
-        ).addTo(map);
-      });
-    }
-
-    // Store map in state
-    state.map = map;
-    
-    showToast('✅ Mapa OpenStreetMap załadowana! (100% darmowa)');
-    console.log('✨ Mapa OpenStreetMap gotowa!');
-  };
-  
-  script.onerror = () => {
-    console.error('❌ Błąd ładowania Leaflet');
-    showToast('❌ Błąd ładowania mapy');
-  };
-  
-  document.head.appendChild(script);
-}
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
@@ -214,333 +59,246 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 2200);
 });
 
-// ===== MAP INIT =====
+// ===== MAP INIT (Leaflet + OpenStreetMap) =====
 function initMap() {
-  console.log('🗺️ initMap() - Starting map initialization');
-  
+  console.log('🗺️ Inicjalizacja mapy Leaflet...');
+
   const mapContainer = document.getElementById('map');
   if (!mapContainer) {
-    console.error('❌ Map container not found!');
+    console.error('❌ Brak kontenera mapy!');
     return;
   }
 
-  // Check if token is available
-  const token = localStorage.getItem('mapboxToken');
-  
-  if (!token || token === '') {
-    console.log('📍 Brak Mapbox tokenu - NATYCHMIAST ładowanie Leaflet...');
-    showToast('🗺️ Ładowanie mapy OpenStreetMap...');
-    
-    // Load Leaflet immediately
-    loadLeafletMapNow();
+  // Check if Leaflet is loaded
+  if (typeof L === 'undefined') {
+    console.log('⚠️ Leaflet nie załadowany, czekam...');
+    setTimeout(initMap, 500);
     return;
   }
 
-  console.log('✅ Mapbox token dostępny - załadowanie Mapbox');
-  
-  // Try to load Mapbox
   try {
-    state.map = new mapboxgl.Map({
-      container: 'map',
-      style: 'mapbox://styles/mapbox/standard',
-      center: APP_DATA.center,
-      zoom: 15.5,
-      pitch: 60,
-      bearing: -20,
-      antialias: true
+    // Clear any fallback content
+    mapContainer.style.background = '';
+    mapContainer.style.animation = '';
+    mapContainer.innerHTML = '';
+
+    // Initialize Leaflet map centered on Łucznicza/Tarczowa
+    const map = L.map('map', {
+      zoomControl: false
+    }).setView([53.4025, 14.5520], 15);
+
+    // Base tile layers
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(map);
+
+    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '© Esri',
+      maxZoom: 18
     });
 
-  map.on('load', () => {
-    // Enable 3D buildings (Mapbox Standard style has them built-in)
-    map.setConfigProperty('basemap', 'lightPreset', 'dusk');
-    map.setConfigProperty('basemap', 'showPointOfInterestLabels', true);
-    map.setConfigProperty('basemap', 'showTransitLabels', true);
+    const tonerLayer = L.tileLayer('https://tiles.stadiamaps.com/tiles/stamen_toner/{z}/{x}/{y}.png', {
+      attribution: '© Stadia Maps',
+      maxZoom: 18
+    });
 
-    // Add street highlight for Łucznicza & Tarczowa
-    addStreetHighlights();
+    // Store layers for switching
+    state.baseLayers = { osm: osmLayer, satellite: satelliteLayer, toner: tonerLayer };
+    state.currentBaseLayer = 'osm';
 
-    // Add markers
-    addAllMarkers(APP_DATA.places);
+    // Add controls
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    L.control.scale({ position: 'bottomleft', metric: true, imperial: false }).addTo(map);
 
-    // Add route lines
-    addRouteLines();
+    // Area highlight rectangle
+    L.rectangle(
+      [[53.4005, 14.5490], [53.4055, 14.5555]],
+      { color: '#6c63ff', weight: 2, opacity: 0.5, fill: true, fillColor: '#6c63ff', fillOpacity: 0.06, dashArray: '4, 2' }
+    ).addTo(map);
 
-    // Fly-in animation on load
-    setTimeout(() => {
-      map.flyTo({
-        center: APP_DATA.center,
-        zoom: 15.5,
-        pitch: 60,
-        bearing: -20,
-        duration: 2500,
-        essential: true
+    // Add POI markers
+    if (APP_DATA && APP_DATA.places) {
+      APP_DATA.places.forEach(place => {
+        const iconHtml = `
+          <div style="width:40px;height:40px;background:${CAT_COLORS[place.cat]};border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.4);border:2px solid rgba(255,255,255,0.3);font-size:18px;">
+            <div style="transform:rotate(45deg);">${place.emoji}</div>
+          </div>
+        `;
+        const icon = L.divIcon({
+          html: iconHtml,
+          iconSize: [40, 40],
+          iconAnchor: [20, 40],
+          popupAnchor: [0, -40],
+          className: 'leaflet-marker-custom'
+        });
+
+        const marker = L.marker([place.coords[1], place.coords[0]], { icon: icon });
+        marker.placeData = place; // Store reference for filtering
+        marker.bindPopup(`
+          <div style="font-size:12px;min-width:200px;">
+            <div style="color:${CAT_COLORS[place.cat]};font-weight:bold;margin-bottom:4px;">${place.cat.toUpperCase()}</div>
+            <strong>${place.name}</strong><br>
+            📍 ${place.addr}<br>
+            ${place.desc.substring(0, 80)}...<br>
+            <button onclick="openPlaceModal(${place.id})" style="padding:6px 12px;background:${CAT_COLORS[place.cat]};color:white;border:none;border-radius:4px;cursor:pointer;margin-top:8px;font-weight:bold;">📍 Szczegóły</button>
+          </div>
+        `);
+        marker.addTo(map);
+        state.markers.push(marker);
       });
-    }, 300);
-  });
-
-  // Navigation controls
-  map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'bottom-right');
-  map.addControl(new mapboxgl.ScaleControl({ maxWidth: 100, unit: 'metric' }), 'bottom-left');
-}
-
-function addStreetHighlights() {
-  const map = state.map;
-
-  // Highlight area around Łucznicza & Tarczowa
-  map.addSource('area-highlight', {
-    type: 'geojson',
-    data: {
-      type: 'Feature',
-      geometry: {
-        type: 'Polygon',
-        coordinates: [[
-          [14.5490, 53.4005],
-          [14.5555, 53.4005],
-          [14.5555, 53.4055],
-          [14.5490, 53.4055],
-          [14.5490, 53.4005]
-        ]]
-      }
-    }
-  });
-
-  map.addLayer({
-    id: 'area-fill',
-    type: 'fill',
-    source: 'area-highlight',
-    paint: {
-      'fill-color': '#6c63ff',
-      'fill-opacity': 0.06
-    }
-  });
-
-  map.addLayer({
-    id: 'area-border',
-    type: 'line',
-    source: 'area-highlight',
-    paint: {
-      'line-color': '#6c63ff',
-      'line-width': 2,
-      'line-opacity': 0.5,
-      'line-dasharray': [4, 2]
-    }
-  });
-}
-
-function addRouteLines() {
-  const map = state.map;
-
-  APP_DATA.routes.forEach(route => {
-    const sourceId = `route-${route.id}`;
-    map.addSource(sourceId, {
-      type: 'geojson',
-      data: {
-        type: 'Feature',
-        geometry: {
-          type: 'LineString',
-          coordinates: route.coords
-        }
-      }
-    });
-
-    map.addLayer({
-      id: `route-line-${route.id}`,
-      type: 'line',
-      source: sourceId,
-      layout: { 'line-join': 'round', 'line-cap': 'round', visibility: 'none' },
-      paint: {
-        'line-color': route.color,
-        'line-width': 4,
-        'line-opacity': 0.8,
-        'line-dasharray': [2, 1]
-      }
-    });
-  });
-}
-
-// ===== MARKERS =====
-function addAllMarkers(places) {
-  // Remove existing markers
-  state.markers.forEach(m => m.remove());
-  state.markers = [];
-
-  places.forEach(place => {
-    const el = document.createElement('div');
-    el.className = 'custom-marker';
-    el.setAttribute('data-cat', place.cat);
-    el.innerHTML = `
-      <div class="marker-inner" style="background:${CAT_COLORS[place.cat]}">
-        <span>${place.emoji}</span>
-      </div>
-      <div class="marker-pulse" style="background:${CAT_COLORS[place.cat]}"></div>
-    `;
-    el.style.cssText = `
-      width: 44px; height: 44px; cursor: pointer;
-      position: relative; display: flex; align-items: center; justify-content: center;
-    `;
-
-    // Inject marker styles once
-    if (!document.getElementById('marker-styles')) {
-      const style = document.createElement('style');
-      style.id = 'marker-styles';
-      style.textContent = `
-        .marker-inner {
-          width: 36px; height: 36px; border-radius: 50% 50% 50% 0;
-          transform: rotate(-45deg); display: flex; align-items: center;
-          justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-          border: 2px solid rgba(255,255,255,0.3); transition: transform 0.2s ease;
-        }
-        .marker-inner span { transform: rotate(45deg); font-size: 16px; }
-        .marker-pulse {
-          position: absolute; width: 44px; height: 44px; border-radius: 50%;
-          opacity: 0.3; animation: markerPulse 2s ease infinite;
-          top: 0; left: 0;
-        }
-        .custom-marker:hover .marker-inner { transform: rotate(-45deg) scale(1.2); }
-      `;
-      document.head.appendChild(style);
     }
 
-    const popup = new mapboxgl.Popup({
-      offset: 25,
-      closeButton: false,
-      maxWidth: '240px'
-    }).setHTML(`
-      <div class="popup-inner">
-        <div class="popup-cat" style="color:${CAT_COLORS[place.cat]}">${place.cat.toUpperCase()}</div>
-        <div class="popup-name">${place.name}</div>
-        <div class="popup-desc">${place.desc.substring(0, 80)}...</div>
-        <button class="popup-btn" onclick="openPlaceModal(${place.id})">Zobacz szczegóły →</button>
-      </div>
-    `);
+    // Add routes
+    if (APP_DATA && APP_DATA.routes) {
+      APP_DATA.routes.forEach(route => {
+        const polyline = L.polyline(
+          route.coords.map(coord => [coord[1], coord[0]]),
+          { color: route.color, weight: 4, opacity: 0.8, dashArray: '8, 4', lineCap: 'round', lineJoin: 'round' }
+        );
+        polyline.routeId = route.id;
+        polyline.addTo(map);
+        state.routePolylines.push(polyline);
+      });
+    }
 
-    const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
-      .setLngLat(place.coords)
-      .setPopup(popup)
-      .addTo(state.map);
+    // Store map in state
+    state.map = map;
 
-    el.addEventListener('click', () => {
-      state.map.flyTo({ center: place.coords, zoom: 17, pitch: 55, duration: 800 });
-    });
+    showToast('✅ Mapa OpenStreetMap załadowana!');
+    console.log('✨ Mapa Leaflet gotowa!');
 
-    state.markers.push(marker);
-  });
+  } catch (err) {
+    console.error('❌ Błąd ładowania mapy:', err);
+    showToast('❌ Błąd ładowania mapy');
+  }
 }
 
+// ===== FILTER MARKERS (Leaflet) =====
 function filterMarkers(cat) {
+  if (!state.map) return;
+  state.currentCat = cat;
   state.markers.forEach(marker => {
-    const el = marker.getElement();
-    const markerCat = el.getAttribute('data-cat');
-    if (cat === 'all' || markerCat === cat) {
-      el.style.display = 'flex';
+    const place = marker.placeData;
+    if (!place) return;
+    if (cat === 'all' || place.cat === cat) {
+      if (!state.map.hasLayer(marker)) marker.addTo(state.map);
     } else {
-      el.style.display = 'none';
-      if (marker.getPopup().isOpen()) marker.togglePopup();
+      if (state.map.hasLayer(marker)) state.map.removeLayer(marker);
     }
   });
 }
 
-// ===== MAP CONTROLS =====
+// ===== MAP CONTROLS (Leaflet-compatible) =====
 function initMapControls() {
   const map = state.map;
+  if (!map) return;
 
-  // 3D toggle
-  document.getElementById('btn3D').addEventListener('click', () => {
-    state.is3D = !state.is3D;
-    map.easeTo({
-      pitch: state.is3D ? 60 : 0,
-      bearing: state.is3D ? -20 : 0,
-      duration: 800
+  // 3D toggle — Leaflet is 2D only, show toast
+  const btn3D = document.getElementById('btn3D');
+  if (btn3D) {
+    btn3D.addEventListener('click', () => {
+      showToast('ℹ️ Leaflet obsługuje widok 2D. Użyj Google Street View dla 3D.');
     });
-    document.getElementById('btn3D').classList.toggle('active', state.is3D);
-    showToast(state.is3D ? '🏙️ Widok 3D włączony' : '🗺️ Widok 2D włączony');
-  });
+    btn3D.classList.remove('active');
+  }
 
-  // Satellite
-  document.getElementById('btnSatellite').addEventListener('click', () => {
-    map.setStyle('mapbox://styles/mapbox/satellite-streets-v12');
-    state.mapStyle = 'satellite';
-    document.getElementById('btnSatellite').classList.add('active');
-    document.getElementById('btnMapStreet').classList.remove('active');
-    showToast('🛰️ Widok satelitarny');
-    map.once('style.load', () => {
-      addStreetHighlights();
-      addAllMarkers(APP_DATA.places);
-      addRouteLines();
+  // Satellite toggle
+  const btnSatellite = document.getElementById('btnSatellite');
+  if (btnSatellite) {
+    btnSatellite.addEventListener('click', () => {
+      if (state.currentBaseLayer !== 'satellite') {
+        map.removeLayer(state.baseLayers[state.currentBaseLayer]);
+        state.baseLayers.satellite.addTo(map);
+        state.currentBaseLayer = 'satellite';
+        btnSatellite.classList.add('active');
+        document.getElementById('btnMapStreet').classList.remove('active');
+        showToast('🛰️ Widok satelitarny');
+      }
     });
-  });
+  }
 
-  // Street
-  document.getElementById('btnMapStreet').addEventListener('click', () => {
-    map.setStyle('mapbox://styles/mapbox/standard');
-    state.mapStyle = 'standard';
-    document.getElementById('btnMapStreet').classList.add('active');
-    document.getElementById('btnSatellite').classList.remove('active');
-    showToast('🗺️ Widok uliczny');
-    map.once('style.load', () => {
-      map.setConfigProperty('basemap', 'lightPreset', state.isDark ? 'dusk' : 'day');
-      addStreetHighlights();
-      addAllMarkers(APP_DATA.places);
-      addRouteLines();
+  // Street view toggle
+  const btnMapStreet = document.getElementById('btnMapStreet');
+  if (btnMapStreet) {
+    btnMapStreet.addEventListener('click', () => {
+      if (state.currentBaseLayer !== 'osm') {
+        map.removeLayer(state.baseLayers[state.currentBaseLayer]);
+        state.baseLayers.osm.addTo(map);
+        state.currentBaseLayer = 'osm';
+        btnMapStreet.classList.add('active');
+        document.getElementById('btnSatellite').classList.remove('active');
+        showToast('🗺️ Widok uliczny');
+      }
     });
-  });
+  }
 
   // Locate
-  document.getElementById('btnLocate').addEventListener('click', () => {
-    if (!navigator.geolocation) {
-      showToast('❌ Geolokalizacja niedostępna');
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        map.flyTo({
-          center: [pos.coords.longitude, pos.coords.latitude],
-          zoom: 16, pitch: 50, duration: 1200
-        });
-        showToast('📍 Znaleziono Twoją lokalizację');
-      },
-      () => {
-        map.flyTo({ center: APP_DATA.center, zoom: 15.5, pitch: 60, duration: 1200 });
-        showToast('📍 Powrót do centrum dzielnicy');
+  const btnLocate = document.getElementById('btnLocate');
+  if (btnLocate) {
+    btnLocate.addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        showToast('❌ Geolokalizacja niedostępna');
+        return;
       }
-    );
-  });
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          map.setView([pos.coords.latitude, pos.coords.longitude], 16, { animate: true });
+          showToast('📍 Znaleziono Twoją lokalizację');
+        },
+        () => {
+          map.setView([53.4025, 14.5520], 15, { animate: true });
+          showToast('📍 Powrót do centrum dzielnicy');
+        }
+      );
+    });
+  }
 
-  // Fly animation
-  document.getElementById('btnFly').addEventListener('click', () => {
-    if (state.flyInterval) {
-      clearInterval(state.flyInterval);
-      state.flyInterval = null;
-      document.getElementById('btnFly').classList.remove('active');
-      showToast('✈️ Animacja zatrzymana');
-      return;
-    }
-    document.getElementById('btnFly').classList.add('active');
-    showToast('✈️ Animacja lotu uruchomiona');
-    let bearing = map.getBearing();
-    state.flyInterval = setInterval(() => {
-      bearing += 0.3;
-      map.setBearing(bearing);
-    }, 16);
-  });
+  // Fly animation (rotate around center)
+  const btnFly = document.getElementById('btnFly');
+  if (btnFly) {
+    btnFly.addEventListener('click', () => {
+      if (state.flyInterval) {
+        clearInterval(state.flyInterval);
+        state.flyInterval = null;
+        btnFly.classList.remove('active');
+        showToast('✈️ Animacja zatrzymana');
+        return;
+      }
+      btnFly.classList.add('active');
+      showToast('✈️ Animacja lotu uruchomiona');
+      let zoom = map.getZoom();
+      let step = 0;
+      const center = [53.4025, 14.5520];
+      const radius = 0.003;
+      state.flyInterval = setInterval(() => {
+        step += 0.02;
+        const lat = center[0] + radius * Math.sin(step);
+        const lng = center[1] + radius * Math.cos(step);
+        map.setView([lat, lng], zoom, { animate: false });
+      }, 50);
+    });
+  }
 
   // Street View (Google Maps)
-  document.getElementById('btnStreetView').addEventListener('click', () => {
-    if (window.googleMapsAPI && window.googleMapsAPI.toggleStreetView) {
-      window.googleMapsAPI.toggleStreetView();
-      showToast('📸 Google Street View');
-    } else {
-      showToast('⚠️ Street View nie dostępny');
-    }
-  });
+  const btnStreetView = document.getElementById('btnStreetView');
+  if (btnStreetView) {
+    btnStreetView.addEventListener('click', () => {
+      if (window.googleMapsAPI && window.googleMapsAPI.toggleStreetView) {
+        window.googleMapsAPI.toggleStreetView();
+        showToast('📸 Google Street View');
+      } else {
+        showToast('⚠️ Street View nie dostępny');
+      }
+    });
+  }
 
-  // Category filter
+  // Category filter buttons
   document.querySelectorAll('.cat-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      state.currentCat = btn.dataset.cat;
-      filterMarkers(state.currentCat);
+      filterMarkers(btn.dataset.cat);
     });
   });
 }
@@ -554,69 +312,90 @@ function initUI() {
   const toolsPanel = document.getElementById('mapToolsPanel');
   const toolsClose = document.getElementById('toolsClose');
 
-  toolsToggle.addEventListener('click', () => {
-    toolsPanel.classList.toggle('hidden');
-    toolsToggle.style.background = toolsPanel.classList.contains('hidden') 
-      ? 'rgba(26,26,46,0.9)' 
-      : 'var(--accent)';
-  });
+  if (toolsToggle && toolsPanel) {
+    toolsToggle.addEventListener('click', () => {
+      toolsPanel.classList.toggle('hidden');
+      toolsToggle.style.background = toolsPanel.classList.contains('hidden')
+        ? 'rgba(26,26,46,0.9)'
+        : 'var(--accent)';
+    });
+  }
+  if (toolsClose && toolsPanel) {
+    toolsClose.addEventListener('click', () => {
+      toolsPanel.classList.add('hidden');
+      if (toolsToggle) toolsToggle.style.background = 'rgba(26,26,46,0.9)';
+    });
+  }
 
-  toolsClose.addEventListener('click', () => {
-    toolsPanel.classList.add('hidden');
-    toolsToggle.style.background = 'rgba(26,26,46,0.9)';
-  });
+  // Map enhancement tool buttons
+  const btnHeatmap = document.getElementById('btnHeatmap');
+  if (btnHeatmap) {
+    btnHeatmap.addEventListener('click', () => {
+      if (window.mapEnhancements) window.mapEnhancements.toggleHeatmap();
+      btnHeatmap.classList.toggle('active');
+    });
+  }
 
-  // Heatmap button
-  document.getElementById('btnHeatmap').addEventListener('click', () => {
-    window.mapEnhancements.toggleHeatmap();
-    document.getElementById('btnHeatmap').classList.toggle('active');
-  });
+  const btnClustering = document.getElementById('btnClustering');
+  if (btnClustering) {
+    btnClustering.addEventListener('click', () => {
+      if (window.mapEnhancements) window.mapEnhancements.enableClustering();
+      btnClustering.classList.toggle('active');
+    });
+  }
 
-  // Clustering button
-  document.getElementById('btnClustering').addEventListener('click', () => {
-    window.mapEnhancements.enableClustering();
-    document.getElementById('btnClustering').classList.toggle('active');
-  });
-
-  // Geofences button
-  document.getElementById('btnGeofences').addEventListener('click', () => {
-    window.mapEnhancements.geofences();
-    document.getElementById('btnGeofences').classList.toggle('active');
-  });
+  const btnGeofences = document.getElementById('btnGeofences');
+  if (btnGeofences) {
+    btnGeofences.addEventListener('click', () => {
+      if (window.mapEnhancements) window.mapEnhancements.geofences();
+      btnGeofences.classList.toggle('active');
+    });
+  }
 
   // Routing
-  document.getElementById('btnCalculateRoute').addEventListener('click', () => {
-    const startId = parseInt(document.getElementById('routeStart').value);
-    const endId = parseInt(document.getElementById('routeEnd').value);
-    if (startId && endId) {
-      window.mapEnhancements.routing(startId, endId);
-    } else {
-      showToast('⚠️ Wybierz początek i koniec trasy');
-    }
-  });
+  const btnCalculateRoute = document.getElementById('btnCalculateRoute');
+  if (btnCalculateRoute) {
+    btnCalculateRoute.addEventListener('click', () => {
+      const startId = parseInt(document.getElementById('routeStart').value);
+      const endId = parseInt(document.getElementById('routeEnd').value);
+      if (startId && endId && window.mapEnhancements) {
+        window.mapEnhancements.routing(startId, endId);
+      } else {
+        showToast('⚠️ Wybierz początek i koniec trasy');
+      }
+    });
+  }
 
   // Populate route selects
   const selects = ['routeStart', 'routeEnd'];
   selects.forEach(id => {
     const select = document.getElementById(id);
-    APP_DATA.places.forEach(place => {
-      const option = document.createElement('option');
-      option.value = place.id;
-      option.textContent = place.name;
-      select.appendChild(option);
-    });
+    if (select && APP_DATA && APP_DATA.places) {
+      APP_DATA.places.forEach(place => {
+        const option = document.createElement('option');
+        option.value = place.id;
+        option.textContent = place.name;
+        select.appendChild(option);
+      });
+    }
   });
 
   // Measurement button
-  document.getElementById('btnMeasure').addEventListener('click', () => {
-    window.mapEnhancements.measurement();
-    document.getElementById('btnMeasure').classList.toggle('active');
-  });
+  const btnMeasure = document.getElementById('btnMeasure');
+  if (btnMeasure) {
+    btnMeasure.addEventListener('click', () => {
+      if (window.mapEnhancements) window.mapEnhancements.measurement();
+      btnMeasure.classList.toggle('active');
+    });
+  }
 
   // Export button
-  document.getElementById('btnExportMap').addEventListener('click', () => {
-    window.mapEnhancements.export();
-  });
+  const btnExportMap = document.getElementById('btnExportMap');
+  if (btnExportMap) {
+    btnExportMap.addEventListener('click', () => {
+      if (window.mapEnhancements) window.mapEnhancements.export();
+    });
+  }
 
   // Menu button
   document.getElementById('menuBtn').addEventListener('click', () => {
@@ -665,9 +444,6 @@ function initUI() {
   document.getElementById('themeBtn').addEventListener('click', () => {
     state.isDark = !state.isDark;
     document.documentElement.setAttribute('data-theme', state.isDark ? 'dark' : 'light');
-    if (state.map && state.mapStyle === 'standard') {
-      state.map.setConfigProperty('basemap', 'lightPreset', state.isDark ? 'dusk' : 'day');
-    }
     showToast(state.isDark ? '🌙 Tryb ciemny' : '☀️ Tryb jasny');
   });
 
@@ -680,10 +456,9 @@ function initUI() {
 
 // ===== NAVIGATION =====
 function navigateTo(section) {
-  window.navigateTo = navigateTo; // expose globally for live.js
+  window.navigateTo = navigateTo;
   state.currentSection = section;
 
-  // Update sections
   document.querySelectorAll('.section').forEach(s => {
     s.classList.remove('active');
     s.classList.add('hidden');
@@ -694,7 +469,6 @@ function navigateTo(section) {
     target.classList.add('active');
   }
 
-  // Update nav items
   document.querySelectorAll('.nav-item').forEach(i => {
     i.classList.toggle('active', i.dataset.section === section);
   });
@@ -702,15 +476,16 @@ function navigateTo(section) {
     b.classList.toggle('active', b.dataset.section === section);
   });
 
-  // If map section, resize map
+  // If map section, invalidate size so Leaflet redraws tiles
   if (section === 'map' && state.map) {
-    setTimeout(() => state.map.resize(), 100);
+    setTimeout(() => state.map.invalidateSize(), 100);
   }
 }
 
 // ===== RENDER PLACES =====
 function renderPlaces(query = '') {
   const grid = document.getElementById('placesGrid');
+  if (!grid) return;
   let places = APP_DATA.places;
 
   if (state.currentFilter !== 'all') {
@@ -763,36 +538,31 @@ function renderPlaces(query = '') {
   });
 }
 
+// ===== FLY TO PLACE (Leaflet) =====
 function flyToPlace(id) {
   const place = APP_DATA.places.find(p => p.id === id);
-  if (!place) return;
+  if (!place || !state.map) return;
   navigateTo('map');
   setTimeout(() => {
-    state.map.flyTo({
-      center: place.coords,
-      zoom: 17.5,
-      pitch: 65,
-      bearing: Math.random() * 60 - 30,
-      duration: 1500
-    });
-    // Open popup
+    state.map.setView([place.coords[1], place.coords[0]], 17, { animate: true, duration: 1.5 });
+    // Open popup for matching marker
     state.markers.forEach(marker => {
-      const el = marker.getElement();
-      const lngLat = marker.getLngLat();
-      if (Math.abs(lngLat.lng - place.coords[0]) < 0.0001) {
-        setTimeout(() => marker.togglePopup(), 1600);
+      if (marker.placeData && marker.placeData.id === id) {
+        setTimeout(() => marker.openPopup(), 800);
       }
     });
   }, 200);
 }
 
 function updateStatTotal() {
-  document.getElementById('statTotal').textContent = APP_DATA.places.length;
+  const el = document.getElementById('statTotal');
+  if (el) el.textContent = APP_DATA.places.length;
 }
 
 // ===== RENDER ROUTES =====
 function renderRoutes() {
   const list = document.getElementById('routesList');
+  if (!list) return;
   list.innerHTML = APP_DATA.routes.map(r => `
     <div class="route-card">
       <div class="route-header" onclick="toggleRoute(${r.id})">
@@ -830,25 +600,30 @@ function renderRoutes() {
 function toggleRoute(id) {
   const body = document.getElementById(`route-body-${id}`);
   const arrow = document.getElementById(`route-arrow-${id}`);
+  if (!body) return;
   const isOpen = body.style.display !== 'none';
   body.style.display = isOpen ? 'none' : 'block';
-  arrow.textContent = isOpen ? '›' : '⌄';
+  if (arrow) arrow.textContent = isOpen ? '›' : '⌄';
 }
 
 function showRouteOnMap(id) {
   const route = APP_DATA.routes.find(r => r.id === id);
-  if (!route) return;
+  if (!route || !state.map) return;
   navigateTo('map');
 
   setTimeout(() => {
-    // Show route layer
-    APP_DATA.routes.forEach(r => {
-      state.map.setLayoutProperty(`route-line-${r.id}`, 'visibility', r.id === id ? 'visible' : 'none');
+    // Highlight selected route, dim others
+    state.routePolylines.forEach(polyline => {
+      if (polyline.routeId === id) {
+        polyline.setStyle({ weight: 6, opacity: 1, dashArray: null });
+      } else {
+        polyline.setStyle({ weight: 3, opacity: 0.3, dashArray: '8, 4' });
+      }
     });
 
     // Fit bounds to route
-    const bounds = route.coords.reduce((b, c) => b.extend(c), new mapboxgl.LngLatBounds(route.coords[0], route.coords[0]));
-    state.map.fitBounds(bounds, { padding: 80, pitch: 55, duration: 1500 });
+    const latLngs = route.coords.map(c => [c[1], c[0]]);
+    state.map.fitBounds(L.latLngBounds(latLngs), { padding: [50, 50], animate: true });
     showToast(`🗺️ Trasa: ${route.name}`);
   }, 200);
 }
@@ -856,6 +631,7 @@ function showRouteOnMap(id) {
 // ===== RENDER INFO =====
 function renderInfo() {
   const container = document.getElementById('infoCards');
+  if (!container) return;
   container.innerHTML = APP_DATA.info.map(item => `
     <div class="info-card">
       <div class="info-card-header">
@@ -878,12 +654,11 @@ function renderInfo() {
 // ===== RENDER TRANSPORT =====
 function renderTransport() {
   const container = document.getElementById('transportGrid');
+  if (!container) return;
   container.innerHTML = APP_DATA.transport.map(t => `
     <div class="transport-card">
       <div class="transport-header">
-        <div class="transport-icon" style="background:${t.color}22">
-          ${t.icon}
-        </div>
+        <div class="transport-icon" style="background:${t.color}22">${t.icon}</div>
         <div>
           <div class="transport-title">${t.title}</div>
           <div class="transport-sub">${t.subtitle}</div>
@@ -909,6 +684,7 @@ function renderTransport() {
 // ===== RENDER EVENTS =====
 function renderEvents() {
   const container = document.getElementById('eventsList');
+  if (!container) return;
   container.innerHTML = APP_DATA.events.map(e => `
     <div class="event-card">
       <div class="event-date">
@@ -988,37 +764,26 @@ function openGoogleMaps(lat, lng) {
 }
 
 // ===== TOAST =====
-let toastTimeout;
 function showToast(msg) {
   const toast = document.getElementById('toast');
+  if (!toast) return;
   toast.textContent = msg;
   toast.classList.remove('hidden');
   toast.style.display = 'block';
-  clearTimeout(toastTimeout);
-  toastTimeout = setTimeout(() => {
-    toast.classList.add('hidden');
-    toast.style.display = 'none';
-  }, 2500);
+  toast.style.opacity = '1';
+  clearTimeout(toast._timeout);
+  toast._timeout = setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => {
+      toast.classList.add('hidden');
+      toast.style.display = 'none';
+    }, 300);
+  }, 3000);
 }
 
-// ===== KEYBOARD SHORTCUTS =====
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    closeModal();
-    document.getElementById('searchBar').classList.add('hidden');
-    document.getElementById('sidebar').classList.remove('open');
-    document.getElementById('sidebarOverlay').classList.add('hidden');
+// ===== RENDER COMMUNITY (placeholder — actual logic in community-ui.js) =====
+function renderCommunity() {
+  if (window.communityUI && window.communityUI.init) {
+    window.communityUI.init();
   }
-  if (e.key === '/' && !e.ctrlKey) {
-    e.preventDefault();
-    document.getElementById('searchBar').classList.remove('hidden');
-    document.getElementById('searchInput').focus();
-  }
-});
-
-// ===== SERVICE WORKER (PWA) =====
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  });
 }

@@ -1985,3 +1985,26 @@ body {
     gap: 4px;
   }
 }
+
+/* ===== LEAFLET CUSTOM MARKERS ===== */
+.leaflet-marker-custom {
+  background: transparent !important;
+  border: none !important;
+}
+.leaflet-popup-content-wrapper {
+  background: var(--bg2, #1a1a2e) !important;
+  border: 1px solid var(--border, rgba(255,255,255,0.08)) !important;
+  border-radius: 12px !important;
+  color: var(--text, #e8e8f0) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;
+}
+.leaflet-popup-tip {
+  background: var(--bg2, #1a1a2e) !important;
+}
+.leaflet-popup-content {
+  margin: 12px !important;
+  color: var(--text, #e8e8f0) !important;
+}
+.leaflet-popup-close-button {
+  color: var(--text2, #9999bb) !important;
+}

@@ -1,5 +1,5 @@
 /**
- * Advanced Map Enhancements Module
+ * Advanced Map Enhancements Module (Leaflet Edition)
  * Heatmaps, clustering, routing, measurements, export
  */
 
@@ -7,235 +7,77 @@
 
 const MAP_ENHANCEMENTS = {
   heatmapEnabled: false,
-  clusteringEnabled: true,
-  routingMode: false,
+  heatmapLayer: null,
+  clusteringEnabled: false,
+  routingLine: null,
   measurementMode: false,
   measurementPoints: [],
-  selectedRoute: null,
-  layerVisibility: {}
+  measurementLayers: [],
+  geofenceLayers: []
 };
 
-// ===== HEATMAP: Aktywność mieszkańców =====
-function addActivityHeatmap() {
-  const map = window.state.map;
+// ===== HEATMAP: Simulated activity heatmap using circle markers =====
+function toggleActivityHeatmap() {
+  const map = window.state && window.state.map;
   if (!map) return;
 
-  // Data punktów aktywności bazowane na community data
-  const activityPoints = [
-    // Skwer przy Tarczowej - parki i spacery
-    { lat: 53.4018, lng: 14.5535, weight: 0.9, activity: 'park' },
-    { lat: 53.4020, lng: 14.5537, weight: 0.85, activity: 'park' },
-    { lat: 53.4016, lng: 14.5533, weight: 0.8, activity: 'park' },
-    
-    // Boisko - sport
-    { lat: 53.4030, lng: 14.5510, weight: 0.95, activity: 'sport' },
-    { lat: 53.4032, lng: 14.5512, weight: 0.9, activity: 'sport' },
-    
-    // Bar Mleczny - jedzenie
-    { lat: 53.4035, lng: 14.5528, weight: 0.88, activity: 'food' },
-    { lat: 53.4033, lng: 14.5530, weight: 0.85, activity: 'food' },
-    
-    // Szkoła - edukacja
-    { lat: 53.4010, lng: 14.5540, weight: 0.75, activity: 'edu' },
-    { lat: 53.4012, lng: 14.5542, weight: 0.7, activity: 'edu' },
-    
-    // Apteka - usługi
-    { lat: 53.4040, lng: 14.5515, weight: 0.7, activity: 'service' },
-    { lat: 53.4038, lng: 14.5517, weight: 0.65, activity: 'service' },
-  ];
-
-  const heatmapData = {
-    type: 'FeatureCollection',
-    features: activityPoints.map(point => ({
-      type: 'Feature',
-      properties: {
-        heat: point.weight,
-        activity: point.activity
-      },
-      geometry: {
-        type: 'Point',
-        coordinates: [point.lng, point.lat]
-      }
-    }))
-  };
-
-  if (map.getSource('activity-heatmap')) {
-    map.removeSource('activity-heatmap');
-    map.removeLayer('activity-heatmap-layer');
+  if (MAP_ENHANCEMENTS.heatmapEnabled && MAP_ENHANCEMENTS.heatmapLayer) {
+    map.removeLayer(MAP_ENHANCEMENTS.heatmapLayer);
+    MAP_ENHANCEMENTS.heatmapEnabled = false;
+    MAP_ENHANCEMENTS.heatmapLayer = null;
+    showToast('🔥 Heatmapa wyłączona');
+    return;
   }
 
-  map.addSource('activity-heatmap', {
-    type: 'geojson',
-    data: heatmapData
+  const activityPoints = [
+    { lat: 53.4018, lng: 14.5535, weight: 0.9 },
+    { lat: 53.4020, lng: 14.5537, weight: 0.85 },
+    { lat: 53.4016, lng: 14.5533, weight: 0.8 },
+    { lat: 53.4030, lng: 14.5510, weight: 0.95 },
+    { lat: 53.4032, lng: 14.5512, weight: 0.9 },
+    { lat: 53.4035, lng: 14.5528, weight: 0.88 },
+    { lat: 53.4033, lng: 14.5530, weight: 0.85 },
+    { lat: 53.4010, lng: 14.5540, weight: 0.75 },
+    { lat: 53.4012, lng: 14.5542, weight: 0.7 },
+    { lat: 53.4040, lng: 14.5515, weight: 0.7 },
+    { lat: 53.4038, lng: 14.5517, weight: 0.65 }
+  ];
+
+  const heatGroup = L.layerGroup();
+  activityPoints.forEach(point => {
+    const radius = point.weight * 80;
+    const opacity = point.weight * 0.4;
+    L.circle([point.lat, point.lng], {
+      radius: radius,
+      color: 'transparent',
+      fillColor: `hsl(${(1 - point.weight) * 240}, 100%, 50%)`,
+      fillOpacity: opacity,
+      interactive: false
+    }).addTo(heatGroup);
   });
 
-  map.addLayer(
-    {
-      id: 'activity-heatmap-layer',
-      type: 'heatmap',
-      source: 'activity-heatmap',
-      paint: {
-        'heatmap-weight': [
-          'interpolate',
-          ['linear'],
-          ['get', 'heat'],
-          0,
-          0,
-          1,
-          1
-        ],
-        'heatmap-intensity': [
-          'interpolate',
-          ['linear'],
-          ['zoom'],
-          0,
-          1,
-          9,
-          3
-        ],
-        'heatmap-color': [
-          'interpolate',
-          ['linear'],
-          ['heatmap-density'],
-          0,
-          'rgba(0, 0, 255, 0)',
-          0.1,
-          'royalblue',
-          0.3,
-          'cyan',
-          0.5,
-          'lime',
-          0.7,
-          'yellow',
-          1,
-          'red'
-        ],
-        'heatmap-radius': [
-          'interpolate',
-          ['linear'],
-          ['zoom'],
-          0,
-          2,
-          9,
-          20
-        ],
-        'heatmap-opacity': [
-          'interpolate',
-          ['linear'],
-          ['zoom'],
-          7,
-          1,
-          9,
-          0.8
-        ]
-      }
-    },
-    'water'
-  );
-
+  heatGroup.addTo(map);
+  MAP_ENHANCEMENTS.heatmapLayer = heatGroup;
   MAP_ENHANCEMENTS.heatmapEnabled = true;
   showToast('🔥 Mapa ciepła aktywności włączona');
 }
 
-function toggleActivityHeatmap() {
-  const map = window.state.map;
-  if (!map) return;
-
-  const layer = map.getLayer('activity-heatmap-layer');
-  if (!layer) {
-    addActivityHeatmap();
-    return;
-  }
-
-  const visibility = map.getLayoutProperty('activity-heatmap-layer', 'visibility');
-  map.setLayoutProperty(
-    'activity-heatmap-layer',
-    'visibility',
-    visibility === 'visible' ? 'none' : 'visible'
-  );
-
-  MAP_ENHANCEMENTS.heatmapEnabled = visibility !== 'visible';
-  showToast(MAP_ENHANCEMENTS.heatmapEnabled ? '🔥 Heatmapa włączona' : '🔥 Heatmapa wyłączona');
-}
-
-// ===== CLUSTERING: Grupowanie markerów =====
+// ===== CLUSTERING: Group nearby markers =====
 function enableMarkerClustering() {
-  const map = window.state.map;
+  const map = window.state && window.state.map;
   if (!map) return;
 
-  // Create GeoJSON from markers
-  const features = APP_DATA.places.map(place => ({
-    type: 'Feature',
-    properties: {
-      id: place.id,
-      name: place.name,
-      category: place.cat
-    },
-    geometry: {
-      type: 'Point',
-      coordinates: [place.coords[0], place.coords[1]]
-    }
-  }));
-
-  if (map.getSource('places-cluster')) {
-    map.removeSource('places-cluster');
-  }
-
-  map.addSource('places-cluster', {
-    type: 'geojson',
-    data: {
-      type: 'FeatureCollection',
-      features: features
-    },
-    cluster: true,
-    clusterMaxZoom: 14,
-    clusterRadius: 50
-  });
-
-  // Cluster layer
-  map.addLayer({
-    id: 'clusters',
-    type: 'circle',
-    source: 'places-cluster',
-    filter: ['has', 'point_count'],
-    paint: {
-      'circle-color': '#6c63ff',
-      'circle-radius': [
-        'step',
-        ['get', 'point_count'],
-        20,
-        100,
-        30,
-        750,
-        40
-      ],
-      'circle-opacity': 0.8
-    }
-  });
-
-  // Cluster count label
-  map.addLayer({
-    id: 'cluster-count',
-    type: 'symbol',
-    source: 'places-cluster',
-    filter: ['has', 'point_count'],
-    layout: {
-      'text-field': '{point_count_abbreviated}',
-      'text-font': ['Open Sans Semibold'],
-      'text-size': 14
-    },
-    paint: {
-      'text-color': '#ffffff'
-    }
-  });
-
-  MAP_ENHANCEMENTS.clusteringEnabled = true;
-  showToast('📍 Clustering markerów włączony');
+  // Simple visual clustering — zoom to show all markers grouped
+  const bounds = L.latLngBounds(
+    window.state.markers.map(m => m.getLatLng())
+  );
+  map.fitBounds(bounds, { padding: [40, 40] });
+  showToast('📍 Widok wszystkich markerów');
 }
 
-// ===== ROUTING: Nawigacja między POI =====
+// ===== ROUTING: Draw line between two POI =====
 function enableRouting(startPlaceId, endPlaceId) {
-  const map = window.state.map;
+  const map = window.state && window.state.map;
   if (!map) return;
 
   const startPlace = APP_DATA.places.find(p => p.id === startPlaceId);
@@ -246,271 +88,122 @@ function enableRouting(startPlaceId, endPlaceId) {
     return;
   }
 
-  // Simplified routing (direct line)
-  const routeCoords = [
-    [startPlace.coords[0], startPlace.coords[1]],
-    [endPlace.coords[0], endPlace.coords[1]]
-  ];
-
-  // Calculate distance
-  const distance = calculateDistance(
-    startPlace.coords[1],
-    startPlace.coords[0],
-    endPlace.coords[1],
-    endPlace.coords[0]
-  );
-
-  if (map.getSource('route')) {
-    map.removeSource('route');
-    map.removeLayer('route-line');
+  // Remove previous route
+  if (MAP_ENHANCEMENTS.routingLine) {
+    map.removeLayer(MAP_ENHANCEMENTS.routingLine);
   }
 
-  map.addSource('route', {
-    type: 'geojson',
-    data: {
-      type: 'Feature',
-      geometry: {
-        type: 'LineString',
-        coordinates: routeCoords
-      }
-    }
-  });
+  const start = [startPlace.coords[1], startPlace.coords[0]];
+  const end = [endPlace.coords[1], endPlace.coords[0]];
 
-  map.addLayer({
-    id: 'route-line',
-    type: 'line',
-    source: 'route',
-    layout: {
-      'line-join': 'round',
-      'line-cap': 'round'
-    },
-    paint: {
-      'line-color': '#ff6584',
-      'line-width': 5,
-      'line-opacity': 0.8,
-      'line-dasharray': [3, 3]
-    }
-  });
+  MAP_ENHANCEMENTS.routingLine = L.polyline([start, end], {
+    color: '#ff6584',
+    weight: 5,
+    opacity: 0.8,
+    dashArray: '10, 6'
+  }).addTo(map);
 
   // Fit bounds
-  const bounds = routeCoords.reduce(
-    (bounds, coord) => bounds.extend(coord),
-    new mapboxgl.LngLatBounds(routeCoords[0], routeCoords[0])
-  );
+  map.fitBounds(L.latLngBounds([start, end]), { padding: [60, 60] });
 
-  map.fitBounds(bounds, { padding: 100 });
-
-  MAP_ENHANCEMENTS.selectedRoute = {
-    start: startPlace.name,
-    end: endPlace.name,
-    distance: distance
-  };
-
+  // Calculate distance
+  const distance = calculateDistance(start[0], start[1], end[0], end[1]);
   showToast(`📍 Trasa: ${distance.toFixed(2)}km (spacer ~${Math.round(distance * 12)} min)`);
 }
 
-// ===== MEASUREMENT: Mierz odległości =====
+// ===== MEASUREMENT: Click-to-measure distances =====
 function enableMeasurementMode() {
-  const map = window.state.map;
+  const map = window.state && window.state.map;
   if (!map) return;
 
   MAP_ENHANCEMENTS.measurementMode = !MAP_ENHANCEMENTS.measurementMode;
-  MAP_ENHANCEMENTS.measurementPoints = [];
 
   if (!MAP_ENHANCEMENTS.measurementMode) {
-    // Disable measurement
-    if (map.getSource('measurement')) {
-      map.removeSource('measurement');
-      map.removeLayer('measurement-line');
-      map.removeLayer('measurement-points');
-    }
+    // Clear measurement layers
+    MAP_ENHANCEMENTS.measurementLayers.forEach(layer => map.removeLayer(layer));
+    MAP_ENHANCEMENTS.measurementLayers = [];
+    MAP_ENHANCEMENTS.measurementPoints = [];
+    map.off('click', onMeasurementClick);
     showToast('📏 Pomiar wyłączony');
     return;
   }
 
+  MAP_ENHANCEMENTS.measurementPoints = [];
+  MAP_ENHANCEMENTS.measurementLayers.forEach(layer => map.removeLayer(layer));
+  MAP_ENHANCEMENTS.measurementLayers = [];
   showToast('📏 Kliknij na mapę aby zmierzyć odległość');
-
-  // Add measurement layers
-  if (!map.getSource('measurement')) {
-    map.addSource('measurement', {
-      type: 'geojson',
-      data: {
-        type: 'FeatureCollection',
-        features: []
-      }
-    });
-
-    map.addLayer({
-      id: 'measurement-line',
-      type: 'line',
-      source: 'measurement',
-      layout: { 'line-join': 'round', 'line-cap': 'round' },
-      paint: {
-        'line-color': '#ff9900',
-        'line-width': 3,
-        'line-opacity': 0.8,
-        'line-dasharray': [2, 2]
-      }
-    });
-
-    map.addLayer({
-      id: 'measurement-points',
-      type: 'circle',
-      source: 'measurement',
-      paint: {
-        'circle-color': '#ff9900',
-        'circle-radius': 6,
-        'circle-opacity': 0.9
-      }
-    });
-  }
-
-  // Click handler
-  map.once('click', (e) => {
-    addMeasurementPoint(e.lngLat);
-  });
+  map.on('click', onMeasurementClick);
 }
 
-function addMeasurementPoint(lngLat) {
+function onMeasurementClick(e) {
   const map = window.state.map;
-  MAP_ENHANCEMENTS.measurementPoints.push([lngLat.lng, lngLat.lat]);
+  MAP_ENHANCEMENTS.measurementPoints.push(e.latlng);
+
+  // Add point marker
+  const pointMarker = L.circleMarker(e.latlng, {
+    radius: 6, color: '#ff9900', fillColor: '#ff9900', fillOpacity: 0.9
+  }).addTo(map);
+  MAP_ENHANCEMENTS.measurementLayers.push(pointMarker);
 
   if (MAP_ENHANCEMENTS.measurementPoints.length > 1) {
+    const pts = MAP_ENHANCEMENTS.measurementPoints;
+    // Draw line
+    const line = L.polyline(pts, {
+      color: '#ff9900', weight: 3, opacity: 0.8, dashArray: '6, 4'
+    }).addTo(map);
+    // Remove old line if exists
+    if (MAP_ENHANCEMENTS.measurementLayers.length > pts.length) {
+      const oldLine = MAP_ENHANCEMENTS.measurementLayers.find(l => l instanceof L.Polyline);
+      if (oldLine) map.removeLayer(oldLine);
+    }
+    MAP_ENHANCEMENTS.measurementLayers.push(line);
+
     // Calculate total distance
     let totalDistance = 0;
-    for (let i = 0; i < MAP_ENHANCEMENTS.measurementPoints.length - 1; i++) {
-      const p1 = MAP_ENHANCEMENTS.measurementPoints[i];
-      const p2 = MAP_ENHANCEMENTS.measurementPoints[i + 1];
-      totalDistance += calculateDistance(p1[1], p1[0], p2[1], p2[0]);
+    for (let i = 0; i < pts.length - 1; i++) {
+      totalDistance += calculateDistance(pts[i].lat, pts[i].lng, pts[i+1].lat, pts[i+1].lng);
     }
-
     showToast(`📏 Odległość: ${totalDistance.toFixed(2)}km`);
   }
-
-  // Update measurement layer
-  const data = {
-    type: 'FeatureCollection',
-    features: [
-      {
-        type: 'Feature',
-        geometry: {
-          type: 'LineString',
-          coordinates: MAP_ENHANCEMENTS.measurementPoints
-        }
-      },
-      ...MAP_ENHANCEMENTS.measurementPoints.map(coord => ({
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: coord
-        }
-      }))
-    ]
-  };
-
-  map.getSource('measurement').setData(data);
-
-  if (MAP_ENHANCEMENTS.measurementMode) {
-    map.once('click', (e) => {
-      addMeasurementPoint(e.lngLat);
-    });
-  }
 }
 
-// ===== EXPORT: Pobierz mapę jako zdjęcie =====
+// ===== EXPORT: Download map as image =====
 function exportMapAsImage() {
-  const map = window.state.map;
+  const map = window.state && window.state.map;
   if (!map) return;
 
-  // Use Mapbox built-in canvas
-  const canvas = map.getCanvas();
-  const link = document.createElement('a');
-  link.href = canvas.toDataURL('image/png');
-  link.download = `mapa-lucznicza-${new Date().toISOString().split('T')[0]}.png`;
-  link.click();
-
-  showToast('📥 Mapa pobrana jako PNG');
+  // Leaflet doesn't have a built-in canvas export like Mapbox
+  // Use html2canvas-like approach or just screenshot instruction
+  showToast('📥 Użyj Print Screen lub narzędzia przeglądarki (Ctrl+Shift+S) aby zapisać mapę');
 }
 
-// ===== GEOFENCING: Strefy zainteresowania =====
+// ===== GEOFENCING: Interest zones =====
 function addGeofences() {
-  const map = window.state.map;
+  const map = window.state && window.state.map;
   if (!map) return;
 
-  // Define zones around each category
+  // Remove existing geofences
+  MAP_ENHANCEMENTS.geofenceLayers.forEach(layer => map.removeLayer(layer));
+  MAP_ENHANCEMENTS.geofenceLayers = [];
+
   const zones = [
-    {
-      id: 'zone-sport',
-      name: 'Strefa Sportowa',
-      center: [14.5510, 53.4030],
-      radius: 200, // meters
-      color: '#ff6b6b'
-    },
-    {
-      id: 'zone-food',
-      name: 'Strefa Gastronomiczna',
-      center: [14.5528, 53.4035],
-      radius: 150,
-      color: '#ffd93d'
-    },
-    {
-      id: 'zone-family',
-      name: 'Strefa Rodzinna',
-      center: [14.5535, 53.4018],
-      radius: 250,
-      color: '#4ecdc4'
-    }
+    { name: 'Strefa Sportowa', center: [53.4030, 14.5510], radius: 200, color: '#ff6b6b' },
+    { name: 'Strefa Gastronomiczna', center: [53.4035, 14.5528], radius: 150, color: '#ffd93d' },
+    { name: 'Strefa Rodzinna', center: [53.4018, 14.5535], radius: 250, color: '#4ecdc4' }
   ];
 
   zones.forEach(zone => {
-    // Create circle coordinates
-    const circleCoords = [];
-    const radius = zone.radius / 111320; // Convert meters to degrees
-    for (let i = 0; i < 64; i++) {
-      const angle = (i / 64) * Math.PI * 2;
-      circleCoords.push([
-        zone.center[0] + radius * Math.cos(angle),
-        zone.center[1] + radius * Math.sin(angle)
-      ]);
-    }
-    circleCoords.push(circleCoords[0]); // Close circle
-
-    if (map.getSource(zone.id)) {
-      map.removeSource(zone.id);
-    }
-
-    map.addSource(zone.id, {
-      type: 'geojson',
-      data: {
-        type: 'Feature',
-        geometry: {
-          type: 'Polygon',
-          coordinates: [circleCoords]
-        }
-      }
-    });
-
-    map.addLayer({
-      id: `${zone.id}-fill`,
-      type: 'fill',
-      source: zone.id,
-      paint: {
-        'fill-color': zone.color,
-        'fill-opacity': 0.1
-      }
-    });
-
-    map.addLayer({
-      id: `${zone.id}-border`,
-      type: 'line',
-      source: zone.id,
-      paint: {
-        'line-color': zone.color,
-        'line-width': 2,
-        'line-opacity': 0.6,
-        'line-dasharray': [4, 4]
-      }
-    });
+    const circle = L.circle(zone.center, {
+      radius: zone.radius,
+      color: zone.color,
+      weight: 2,
+      opacity: 0.6,
+      fillColor: zone.color,
+      fillOpacity: 0.1,
+      dashArray: '6, 4'
+    }).addTo(map);
+    circle.bindTooltip(zone.name, { permanent: false, direction: 'center' });
+    MAP_ENHANCEMENTS.geofenceLayers.push(circle);
   });
 
   showToast('🎯 Strefy zainteresowania dodane');
@@ -518,7 +211,7 @@ function addGeofences() {
 
 // ===== DISTANCE CALCULATION =====
 function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Earth radius in km
+  const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
@@ -531,9 +224,8 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-// ===== EXPORT =====
+// ===== EXPORT API =====
 window.mapEnhancements = {
-  addHeatmap: addActivityHeatmap,
   toggleHeatmap: toggleActivityHeatmap,
   enableClustering: enableMarkerClustering,
   routing: enableRouting,

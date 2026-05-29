@@ -8,9 +8,7 @@
   <title>Przewodnik — Łucznicza & Tarczowa, Szczecin</title>
   <link rel="manifest" href="manifest.json" />
 
-  <!-- Mapbox GL JS v3 -->
-  <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet" />
-  <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
+  <!-- Mapbox removed — using Leaflet + OpenStreetMap instead -->
 
   <!-- Google Maps API (Street View + Panoramic) -->
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC3aLJJFzlRXfWz9K9wQ8XzLt5rVqpQxE8&libraries=places,geocoding"></script>
@@ -19,6 +17,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
+
+  <!-- Leaflet Map Library -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -119,8 +121,8 @@
       <!-- MAP SECTION -->
       <section id="section-map" class="section active">
         <div class="map-container">
-          <!-- Dual Map View: Mapbox 3D + Google Street View -->
-          <div id="map" class="map-main"></div>
+          <!-- Leaflet Map Container -->
+          <div id="map" class="map-main" style="height: 100%; width: 100%; background: #f0f0f0;"></div>
           
           <!-- Street View Panoramic (hidden by default, toggle to show) -->
           <div id="streetViewContainer" class="street-view-container hidden">
@@ -192,6 +194,9 @@
           <button class="tools-toggle-btn" id="toolsToggle" title="Narzędzia mapy">
             🛠️
           </button>
+
+          <!-- Panoramic Controls (for Street View) -->
+          <div class="pano-controls hidden" id="panoControls">
             <div class="pano-control-group">
               <button id="svZoomIn" title="Zoom in" class="pano-btn">🔍+</button>
               <button id="svZoomOut" title="Zoom out" class="pano-btn">🔍−</button>
@@ -531,6 +536,7 @@
         </svg>
         <span>Społeczność</span>
       </button>
+    </nav>
 
     <!-- PLACE DETAIL MODAL -->
     <div class="modal-overlay hidden" id="modalOverlay">
@@ -614,33 +620,7 @@
 
   </div><!-- /#app -->
 
-  <script>
-    // Load Leaflet immediately if needed
-    function loadLeafletFromCDNNow() {
-      console.log('📥 Pobieranie Leaflet z CDN...');
-      
-      // Load CSS
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
-      link.onload = () => console.log('✅ Leaflet CSS załadowany');
-      document.head.appendChild(link);
-
-      // Load JS
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
-      script.onload = () => {
-        console.log('✅ Leaflet JS załadowany');
-        if (window.leafletMap && window.leafletMap.init) {
-          window.leafletMap.init();
-        }
-      };
-      script.onerror = () => {
-        console.error('❌ Błąd ładowania Leaflet');
-      };
-      document.head.appendChild(script);
-    }
-  </script>
+  <!-- Leaflet is loaded via CDN in <head>, no extra script needed -->
 
   <script src="data.js"></script>
   <script src="community-data.js"></script>
@@ -649,7 +629,6 @@
   <script src="map-enhancements.js"></script>
   <script src="map-improvements.js"></script>
   <script src="pogon-mascot.js"></script>
-  <script src="leaflet-map.js"></script>
   <script src="app.js"></script>
   <script src="live.js"></script>
   <script src="google-maps.js"></script>
