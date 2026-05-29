@@ -69,45 +69,14 @@ document.addEventListener('DOMContentLoaded', () => {
 function initMap() {
   // Check if token is available
   if (!mapboxgl.accessToken || mapboxgl.accessToken === '') {
-    console.warn('⚠️ Brak Mapbox tokenu - mapa będzie szara');
-    showToast('⚠️ Mapbox token nie ustawiony. Kliknij "🔑 Dodaj Token" na mapie.');
+    console.log('📍 Brak Mapbox tokenu - ładowanie Leaflet + OpenStreetMap...');
+    showToast('🗺️ Ładowanie darmowej mapy OpenStreetMap...');
     
-    // Create placeholder map
-    const mapContainer = document.getElementById('map');
-    if (mapContainer) {
-      mapContainer.innerHTML = `
-        <div style="
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          text-align: center;
-          font-family: Inter, sans-serif;
-        ">
-          <div>
-            <div style="font-size: 64px; margin-bottom: 16px;">🗺️</div>
-            <h1 style="margin: 0 0 12px 0;">Mapa Szczecina</h1>
-            <p style="margin: 0 0 24px 0; opacity: 0.9;">Aby zobaczyć mapę 3D, dodaj token Mapbox</p>
-            <button onclick="window.mapFix.showSetup()" style="
-              padding: 12px 24px;
-              background: white;
-              color: #667eea;
-              border: none;
-              border-radius: 8px;
-              cursor: pointer;
-              font-weight: 600;
-              font-size: 16px;
-            ">🔑 Dodaj Token</button>
-          </div>
-        </div>
-      `;
-    }
+    // Load Leaflet map instead
+    setTimeout(() => {
+      window.leafletMap.init();
+      showToast('✅ Mapa OpenStreetMap załadowana! (100% darmowa)');
+    }, 500);
     return;
   }
 

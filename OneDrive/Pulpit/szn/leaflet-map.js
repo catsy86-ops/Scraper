@@ -12,7 +12,8 @@ const LEAFLET_MAP = {
   map: null,
   markers: [],
   routeLayers: [],
-  isInitialized: false
+  isInitialized: false,
+  currentStyle: 'osm'
 };
 
 // Initialize Leaflet map
@@ -21,6 +22,9 @@ function initLeafletMap() {
   if (!mapContainer || LEAFLET_MAP.isInitialized) return;
 
   try {
+    // Clear container
+    mapContainer.innerHTML = '';
+    
     // Szczecin coordinates
     const SZCZECIN_CENTER = [53.4025, 14.5520];
 
@@ -28,19 +32,16 @@ function initLeafletMap() {
     LEAFLET_MAP.map = L.map('map').setView(SZCZECIN_CENTER, 15);
 
     // Add OpenStreetMap tiles (darmowe!)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors',
       maxZoom: 19,
       minZoom: 1
     }).addTo(LEAFLET_MAP.map);
 
-    // Add a complementary layer option (Stamen Toner - też darmowe)
+    // Add layer control with options
     const layerControl = L.control.layers(
       {
-        'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap',
-          maxZoom: 19
-        }),
+        'OpenStreetMap': osmLayer,
         'Stamen Toner': L.tileLayer('https://tiles.stadiamaps.com/tiles/stamen_toner/{z}/{x}/{y}.png', {
           attribution: '© Stadia Maps',
           maxZoom: 18
@@ -59,18 +60,22 @@ function initLeafletMap() {
     L.control.scale({ position: 'bottomleft' }).addTo(LEAFLET_MAP.map);
 
     // Add street highlight area
-    addAreaHighlight();
+    addAreaHighlightLeaflet();
 
     // Add POI markers
-    addPoiMarkers();
+    addPoiMarkersLeaflet();
 
     // Add route lines
-    addRouteLines();
+    addRouteLinesLeaflet();
 
     LEAFLET_MAP.isInitialized = true;
+    
+    // Update global state
+    if (window.state) {
+      window.state.map = LEAFLET_MAP.map;
+    }
 
     console.log('✅ Leaflet + OpenStreetMap mapa załadowana!');
-    showToast('✅ Mapa OpenStreetMap załadowana! (100% darmowa)');
 
   } catch (err) {
     console.error('❌ Błąd ładowania Leaflet mapy:', err);
@@ -79,7 +84,7 @@ function initLeafletMap() {
 }
 
 // Add area highlight
-function addAreaHighlight() {
+function addAreaHighlightLeaflet() {
   if (!LEAFLET_MAP.map) return;
 
   const bounds = [
@@ -99,18 +104,18 @@ function addAreaHighlight() {
 }
 
 // Add POI markers
-function addPoiMarkers() {
+function addPoiMarkersLeaflet() {
   if (!LEAFLET_MAP.map || !APP_DATA || !APP_DATA.places) return;
 
   APP_DATA.places.forEach(place => {
-    const marker = createCustomMarker(place);
+    const marker = createCustomMarkerLeaflet(place);
     marker.addTo(LEAFLET_MAP.map);
     LEAFLET_MAP.markers.push(marker);
   });
 }
 
 // Create custom marker with custom icon
-function createCustomMarker(place) {
+function createCustomMarkerLeaflet(place) {
   const CAT_COLORS = {
     sport: '#ff6b6b',
     food: '#ffd93d',
@@ -143,7 +148,8 @@ function createCustomMarker(place) {
     html: iconHtml,
     iconSize: [40, 40],
     iconAnchor: [20, 40],
-    popupAnchor: [0, -40]
+    popupAnchor: [0, -40],
+    className: 'leaflet-marker-custom'
   });
 
   const marker = L.marker([place.coords[1], place.coords[0]], { icon: icon });
@@ -192,7 +198,7 @@ function createCustomMarker(place) {
 }
 
 // Add route lines
-function addRouteLines() {
+function addRouteLinesLeaflet() {
   if (!LEAFLET_MAP.map || !APP_DATA || !APP_DATA.routes) return;
 
   APP_DATA.routes.forEach(route => {
@@ -239,7 +245,9 @@ function filterMarkersLeaflet(category) {
     if (category === 'all' || markerCat === category) {
       marker.addTo(LEAFLET_MAP.map);
     } else {
-      LEAFLET_MAP.map.removeLayer(marker);
+      if (LEAFLET_MAP.map.hasLayer(marker)) {
+        LEAFLET_MAP.map.removeLayer(marker);
+      }
     }
   });
 }
@@ -261,7 +269,7 @@ function flyToPlaceLeaflet(placeId) {
 function setupLeafletAlternative() {
   // Check if Leaflet is already loaded
   if (typeof L === 'undefined') {
-    console.warn('⚠️ Leaflet not available - loading from CDN');
+    console.log('📡 Ładowanie Leaflet z CDN...');
     loadLeafletFromCDN();
   } else {
     initLeafletMap();
@@ -280,7 +288,12 @@ function loadLeafletFromCDN() {
   const script = document.createElement('script');
   script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
   script.onload = () => {
+    console.log('✅ Leaflet załadowany z CDN');
     initLeafletMap();
+  };
+  script.onerror = () => {
+    console.error('❌ Błąd ładowania Leaflet z CDN');
+    showToast('❌ Błąd ładowania biblioteki map');
   };
   document.head.appendChild(script);
 }
@@ -289,7 +302,9 @@ function loadLeafletFromCDN() {
 window.leafletMap = {
   init: setupLeafletAlternative,
   filterMarkers: filterMarkersLeaflet,
-  flyToPlace: flyToPlaceLeaflet
+  flyToPlace: flyToPlaceLeaflet,
+  getMap: () => LEAFLET_MAP.map,
+  isReady: () => LEAFLET_MAP.isInitialized
 };
 
 // Auto-initialize if Mapbox token is missing
@@ -298,6 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const token = localStorage.getItem('mapboxToken');
     if (!token || token === '') {
       // No token - try Leaflet alternative
+      console.log('🗺️ Brak Mapbox tokenu - przygotowuję Leaflet...');
       setTimeout(setupLeafletAlternative, 1500);
     }
   }, 1000);
