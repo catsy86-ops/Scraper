@@ -40,6 +40,155 @@ const CAT_BG = {
   edu: 'rgba(253,121,168,0.15)'
 };
 
+// ===== LOAD LEAFLET MAP IMMEDIATELY =====
+function loadLeafletMapNow() {
+  console.log('📥 Ładowanie Leaflet + OpenStreetMap...');
+  
+  const mapContainer = document.getElementById('map');
+  if (!mapContainer) return;
+
+  // Load Leaflet CSS
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+  document.head.appendChild(link);
+
+  // Load Leaflet JS
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+  script.onload = () => {
+    console.log('✅ Leaflet załadowany - inicjalizacja mapy...');
+    
+    // Initialize Leaflet map
+    const map = L.map('map').setView([53.4025, 14.5520], 15);
+    
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19,
+      minZoom: 1
+    }).addTo(map);
+
+    // Add layer control
+    L.control.layers(
+      {
+        'OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap',
+          maxZoom: 19
+        }),
+        'Stamen Toner': L.tileLayer('https://tiles.stadiamaps.com/tiles/stamen_toner/{z}/{x}/{y}.png', {
+          attribution: '© Stadia Maps',
+          maxZoom: 18
+        }),
+        'Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          attribution: '© Esri',
+          maxZoom: 18
+        })
+      },
+      null,
+      { position: 'topleft', collapsed: true }
+    ).addTo(map);
+
+    // Add controls
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    L.control.scale({ position: 'bottomleft' }).addTo(map);
+
+    // Add highlight area
+    const bounds = [
+      [53.4005, 14.5490],
+      [53.4055, 14.5555]
+    ];
+    L.rectangle(bounds, {
+      color: '#6c63ff',
+      weight: 2,
+      opacity: 0.5,
+      fill: true,
+      fillColor: '#6c63ff',
+      fillOpacity: 0.06,
+      dashArray: '4, 2'
+    }).addTo(map);
+
+    // Add POI markers
+    if (APP_DATA && APP_DATA.places) {
+      APP_DATA.places.forEach(place => {
+        const CAT_COLORS = {
+          sport: '#ff6b6b',
+          food: '#ffd93d',
+          shop: '#6bcb77',
+          park: '#4ecdc4',
+          service: '#a29bfe',
+          edu: '#fd79a8'
+        };
+
+        const iconHtml = `
+          <div style="
+            width: 40px;
+            height: 40px;
+            background: ${CAT_COLORS[place.cat]};
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            border: 2px solid rgba(255,255,255,0.3);
+            font-size: 18px;
+          ">
+            <div style="transform: rotate(45deg);">${place.emoji}</div>
+          </div>
+        `;
+
+        const icon = L.divIcon({
+          html: iconHtml,
+          iconSize: [40, 40],
+          iconAnchor: [20, 40],
+          popupAnchor: [0, -40]
+        });
+
+        const marker = L.marker([place.coords[1], place.coords[0]], { icon: icon });
+        marker.bindPopup(`
+          <div style="font-size: 12px;">
+            <strong>${place.name}</strong><br>
+            📍 ${place.addr}<br>
+            <button onclick="openPlaceModal(${place.id})" style="padding:4px 8px;background:${CAT_COLORS[place.cat]};color:white;border:none;border-radius:4px;cursor:pointer;margin-top:4px;">
+              Szczegóły
+            </button>
+          </div>
+        `);
+        marker.addTo(map);
+      });
+    }
+
+    // Add routes
+    if (APP_DATA && APP_DATA.routes) {
+      APP_DATA.routes.forEach(route => {
+        L.polyline(
+          route.coords.map(coord => [coord[1], coord[0]]),
+          {
+            color: route.color,
+            weight: 4,
+            opacity: 0.8,
+            dashArray: '8, 4'
+          }
+        ).addTo(map);
+      });
+    }
+
+    // Store map in state
+    state.map = map;
+    
+    showToast('✅ Mapa OpenStreetMap załadowana! (100% darmowa)');
+    console.log('✨ Mapa OpenStreetMap gotowa!');
+  };
+  
+  script.onerror = () => {
+    console.error('❌ Błąd ładowania Leaflet');
+    showToast('❌ Błąd ładowania mapy');
+  };
+  
+  document.head.appendChild(script);
+}
+
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
   // Splash screen
@@ -69,21 +218,21 @@ document.addEventListener('DOMContentLoaded', () => {
 function initMap() {
   console.log('🗺️ initMap() - Starting map initialization');
   
+  const mapContainer = document.getElementById('map');
+  if (!mapContainer) {
+    console.error('❌ Map container not found!');
+    return;
+  }
+
   // Check if token is available
   const token = localStorage.getItem('mapboxToken');
   
   if (!token || token === '') {
-    console.log('📍 Brak Mapbox tokenu - ładowanie Leaflet + OpenStreetMap TERAZ...');
+    console.log('📍 Brak Mapbox tokenu - NATYCHMIAST ładowanie Leaflet...');
     showToast('🗺️ Ładowanie mapy OpenStreetMap...');
     
     // Load Leaflet immediately
-    if (typeof L === 'undefined') {
-      console.log('📡 Leaflet nie załadowany - pobieranie z CDN...');
-      loadLeafletFromCDNNow();
-    } else {
-      console.log('✅ Leaflet już dostępny - inicjalizacja...');
-      window.leafletMap.init();
-    }
+    loadLeafletMapNow();
     return;
   }
 
