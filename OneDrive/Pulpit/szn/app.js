@@ -12,7 +12,9 @@ const state = {
   routePolylines: [],
   map: null,
   flyInterval: null,
-  searchQuery: ''
+  searchQuery: '',
+  sortBy: 'default',      // default | rating | distance | name
+  showFavoritesOnly: false
 };
 
 // ===== CATEGORY COLORS =====
@@ -55,9 +57,21 @@ document.addEventListener('DOMContentLoaded', () => {
       renderEvents();
       renderCommunity();
       updateStatTotal();
+      handleDeepLink();
     }, 500);
   }, 2200);
 });
+
+// ===== DEEP LINK (#miejsce-X opens that place) =====
+function handleDeepLink() {
+  const hash = window.location.hash;
+  const match = hash.match(/#miejsce-(\d+)/);
+  if (match) {
+    const id = parseInt(match[1]);
+    navigateTo('places');
+    setTimeout(() => openPlaceModal(id), 400);
+  }
+}
 
 // ===== MAP INIT (Leaflet + OpenStreetMap) =====
 function initMap() {
@@ -486,6 +500,69 @@ function initUI() {
   document.getElementById('modalOverlay').addEventListener('click', e => {
     if (e.target === document.getElementById('modalOverlay')) closeModal();
   });
+
+  initPlacesToolbar();
+}
+
+// ===== PLACES TOOLBAR (sort + favorites + distance) =====
+function initPlacesToolbar() {
+  const sortSelect = document.getElementById('sortSelect');
+  if (sortSelect) {
+    sortSelect.addEventListener('change', () => {
+      state.sortBy = sortSelect.value;
+      if (state.sortBy === 'distance') {
+        requestUserLocation(() => renderPlaces(state.searchQuery));
+      } else {
+        renderPlaces(state.searchQuery);
+      }
+    });
+  }
+
+  const favToggleBtn = document.getElementById('favToggleBtn');
+  if (favToggleBtn) {
+    favToggleBtn.addEventListener('click', () => {
+      state.showFavoritesOnly = !state.showFavoritesOnly;
+      favToggleBtn.classList.toggle('active', state.showFavoritesOnly);
+      favToggleBtn.innerHTML = state.showFavoritesOnly ? '❤️ Ulubione' : '🤍 Ulubione';
+      renderPlaces(state.searchQuery);
+    });
+  }
+
+  const distSortBtn = document.getElementById('distSortBtn');
+  if (distSortBtn) {
+    distSortBtn.addEventListener('click', () => {
+      requestUserLocation(() => {
+        state.sortBy = 'distance';
+        if (sortSelect) sortSelect.value = 'distance';
+        distSortBtn.classList.add('active');
+        renderPlaces(state.searchQuery);
+        showToast('📍 Posortowano wg odległości od Ciebie');
+      });
+    });
+  }
+}
+
+// ===== GEOLOCATION HELPER =====
+function requestUserLocation(callback) {
+  const PE = window.placesEnhanced;
+  if (!navigator.geolocation || !PE) {
+    showToast('❌ Geolokalizacja niedostępna');
+    if (callback) callback();
+    return;
+  }
+  showToast('🔄 Pobieranie lokalizacji...');
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      PE.setUserLocation(pos.coords.latitude, pos.coords.longitude);
+      if (callback) callback();
+    },
+    () => {
+      // Fallback: use district center
+      PE.setUserLocation(53.4025, 14.5520);
+      showToast('📍 Używam centrum dzielnicy jako punktu odniesienia');
+      if (callback) callback();
+    }
+  );
 }
 
 // ===== NAVIGATION =====
@@ -516,15 +593,22 @@ function navigateTo(section) {
   }
 }
 
-// ===== RENDER PLACES =====
+// ===== RENDER PLACES (ENHANCED) =====
 function renderPlaces(query = '') {
   const grid = document.getElementById('placesGrid');
   if (!grid) return;
-  let places = APP_DATA.places;
+  const PE = window.placesEnhanced;
+  let places = [...APP_DATA.places];
 
+  // Filter by category
   if (state.currentFilter !== 'all') {
     places = places.filter(p => p.cat === state.currentFilter);
   }
+  // Filter favorites
+  if (state.showFavoritesOnly && PE) {
+    places = places.filter(p => PE.isFavorite(p.id));
+  }
+  // Search
   if (query) {
     places = places.filter(p =>
       p.name.toLowerCase().includes(query) ||
@@ -534,42 +618,110 @@ function renderPlaces(query = '') {
     );
   }
 
-  grid.innerHTML = places.map(p => `
-    <div class="place-card" onclick="openPlaceModal(${p.id})">
-      <div class="place-card-header" style="background:${CAT_BG[p.cat]}">
-        <span style="font-size:52px">${p.emoji}</span>
-        <span class="place-card-badge badge-${p.cat}">${p.cat}</span>
-      </div>
-      <div class="place-card-body">
-        <div class="place-card-name">${p.name}</div>
-        <div class="place-card-addr">📍 ${p.addr}</div>
-        <div class="place-card-desc">${p.desc.substring(0, 90)}...</div>
-      </div>
-      <div class="place-card-footer">
-        <span class="place-card-hours">⏰ ${p.hours}</span>
-        <button class="place-card-btn" onclick="event.stopPropagation(); flyToPlace(${p.id})">
-          🗺️ Na mapie
-        </button>
-      </div>
-    </div>
-  `).join('');
+  // Sorting
+  if (state.sortBy === 'rating') {
+    places.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  } else if (state.sortBy === 'name') {
+    places.sort((a, b) => a.name.localeCompare(b.name, 'pl'));
+  } else if (state.sortBy === 'distance' && PE) {
+    places.sort((a, b) => {
+      const da = PE.distanceToPlace(a), db = PE.distanceToPlace(b);
+      if (da == null) return 1;
+      if (db == null) return -1;
+      return da - db;
+    });
+  } else {
+    // default: featured first, then popular, then rating
+    places.sort((a, b) => {
+      if ((b.featured ? 1 : 0) !== (a.featured ? 1 : 0)) return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
+      if ((b.popular ? 1 : 0) !== (a.popular ? 1 : 0)) return (b.popular ? 1 : 0) - (a.popular ? 1 : 0);
+      return (b.rating || 0) - (a.rating || 0);
+    });
+  }
+
+  grid.innerHTML = places.map(p => renderPlaceCard(p)).join('');
+
+  // Update count
+  const countEl = document.getElementById('placesCount');
+  if (countEl) {
+    countEl.textContent = `${places.length} ${places.length === 1 ? 'miejsce' : (places.length < 5 ? 'miejsca' : 'miejsc')}`;
+  }
 
   if (places.length === 0) {
+    const msg = state.showFavoritesOnly
+      ? 'Nie masz jeszcze ulubionych miejsc. Kliknij ❤️ na karcie miejsca.'
+      : `Brak wyników dla "${query}"`;
     grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text2)">
       <div style="font-size:48px;margin-bottom:12px">🔍</div>
-      <p>Brak wyników dla "${query}"</p>
+      <p>${msg}</p>
     </div>`;
   }
 
   // Filter tabs
   document.querySelectorAll('#placesFilter .filter-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
+    tab.onclick = () => {
       document.querySelectorAll('#placesFilter .filter-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       state.currentFilter = tab.dataset.filter;
       renderPlaces(state.searchQuery);
-    });
+    };
   });
+}
+
+// ===== RENDER SINGLE PLACE CARD =====
+function renderPlaceCard(p) {
+  const PE = window.placesEnhanced;
+  const status = PE ? PE.getOpenStatus(p) : null;
+  const fav = PE ? PE.isFavorite(p.id) : false;
+  const dist = PE ? PE.distanceToPlace(p) : null;
+  const stars = PE ? PE.renderStars(p.rating || 0) : '';
+  const price = PE ? PE.renderPriceLevel(p.price) : '';
+
+  const tagsHtml = (p.tags || []).slice(0, 3).map(t =>
+    `<span class="card-tag">#${t}</span>`).join('');
+
+  return `
+    <div class="place-card ${p.featured ? 'is-featured' : ''}" onclick="openPlaceModal(${p.id})">
+      ${p.featured ? '<span class="featured-ribbon">⭐ POLECANE</span>' : ''}
+      <button class="fav-btn ${fav ? 'active' : ''}" onclick="event.stopPropagation(); toggleFav(${p.id}, this)" title="Dodaj do ulubionych">
+        ${fav ? '❤️' : '🤍'}
+      </button>
+      <div class="place-card-header" style="background:${p.gradient || CAT_BG[p.cat]}">
+        <span style="font-size:52px">${p.emoji}</span>
+        <span class="place-card-badge badge-${p.cat}">${p.cat}</span>
+        ${status ? `<span class="status-badge ${status.open ? 'is-open' : 'is-closed'}">${status.open ? '🟢' : '🔴'} ${status.label}</span>` : ''}
+      </div>
+      <div class="place-card-body">
+        <div class="place-card-name">${p.name}</div>
+        <div class="card-rating">
+          <span class="stars">${stars}</span>
+          <span class="rating-num">${p.rating || '–'}</span>
+          ${p.reviewCount ? `<span class="review-count">(${p.reviewCount})</span>` : ''}
+          ${price ? `<span class="card-price">${price}</span>` : ''}
+        </div>
+        <div class="place-card-addr">📍 ${p.addr}${dist != null ? ` · <strong>${PE.formatDistance(dist)}</strong>` : ''}</div>
+        <div class="place-card-desc">${p.desc.substring(0, 80)}...</div>
+        <div class="card-tags">${tagsHtml}</div>
+      </div>
+      <div class="place-card-footer">
+        <span class="place-card-hours ${status && !status.open ? 'closed' : ''}">⏰ ${status ? status.sub : p.hours}</span>
+        <button class="place-card-btn" onclick="event.stopPropagation(); flyToPlace(${p.id})">
+          🗺️ Na mapie
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// ===== TOGGLE FAVORITE =====
+function toggleFav(id, btn) {
+  const PE = window.placesEnhanced;
+  if (!PE) return;
+  const isFav = PE.toggleFavorite(id);
+  btn.textContent = isFav ? '❤️' : '🤍';
+  btn.classList.toggle('active', isFav);
+  showToast(isFav ? '❤️ Dodano do ulubionych' : '🤍 Usunięto z ulubionych');
+  if (state.showFavoritesOnly) renderPlaces(state.searchQuery);
 }
 
 // ===== FLY TO PLACE (Leaflet) =====
@@ -739,22 +891,83 @@ function renderEvents() {
 function openPlaceModal(id) {
   const place = APP_DATA.places.find(p => p.id === id);
   if (!place) return;
+  const PE = window.placesEnhanced;
+  const status = PE ? PE.getOpenStatus(place) : null;
+  const fav = PE ? PE.isFavorite(place.id) : false;
+  const stars = PE ? PE.renderStars(place.rating || 0) : '';
+  const price = PE ? PE.renderPriceLevel(place.price) : '';
+  const dist = PE ? PE.distanceToPlace(place) : null;
+
+  // Weekly hours table
+  const dayNames = { mon: 'Pon', tue: 'Wt', wed: 'Śr', thu: 'Czw', fri: 'Pt', sat: 'Sob', sun: 'Ndz' };
+  const todayKey = ['sun','mon','tue','wed','thu','fri','sat'][new Date().getDay()];
+  let hoursTable = '';
+  if (place.hoursWeek) {
+    hoursTable = Object.keys(dayNames).map(d => {
+      const v = place.hoursWeek[d];
+      let label = v === '0-24' ? 'Całą dobę' : v === 'zamkn' ? 'Zamknięte' : v === 'dyżur' ? 'Dyżur' : v.replace('-', ':00–') + ':00';
+      label = label.replace('7.5:00', '7:30');
+      return `<div class="hours-row ${d === todayKey ? 'today' : ''}">
+        <span>${dayNames[d]}${d === todayKey ? ' (dziś)' : ''}</span>
+        <span class="${v === 'zamkn' ? 'closed' : ''}">${label}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Reviews
+  let reviewsHtml = '';
+  if (place.reviews && place.reviews.length) {
+    reviewsHtml = `
+      <div class="modal-section-title">💬 Opinie (${place.reviews.length})</div>
+      <div class="reviews-block">
+        ${place.reviews.map(r => `
+          <div class="review-item">
+            <div class="review-head">
+              <span class="review-avatar">${r.name.charAt(0)}</span>
+              <div>
+                <div class="review-name">${r.name}</div>
+                <div class="review-date">${r.date}</div>
+              </div>
+              <span class="review-stars">${PE ? PE.renderStars(r.rating) : ''}</span>
+            </div>
+            <div class="review-text">${r.text}</div>
+          </div>
+        `).join('')}
+      </div>
+      <button class="add-review-btn" onclick="addReviewPrompt(${place.id})">✍️ Dodaj opinię</button>
+    `;
+  }
 
   const content = document.getElementById('modalContent');
   content.innerHTML = `
-    <div class="modal-emoji">${place.emoji}</div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+    <div class="modal-hero" style="background:${place.gradient || CAT_BG[place.cat]}">
+      <span class="modal-hero-emoji">${place.emoji}</span>
+      <button class="modal-fav-btn ${fav ? 'active' : ''}" onclick="toggleFav(${place.id}, this); syncModalFav(${place.id})">
+        ${fav ? '❤️' : '🤍'}
+      </button>
+      ${status ? `<span class="modal-status ${status.open ? 'is-open' : 'is-closed'}">${status.open ? '🟢' : '🔴'} ${status.label}</span>` : ''}
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin:14px 0 6px;flex-wrap:wrap">
       <span class="place-card-badge badge-${place.cat}" style="position:static">${place.cat}</span>
-      <span style="color:var(--text2);font-size:13px">⭐ ${place.rating}/5</span>
+      ${price ? `<span class="modal-price">${price}</span>` : ''}
+      ${place.featured ? '<span class="modal-featured">⭐ POLECANE</span>' : ''}
     </div>
     <h2 class="modal-title">${place.name}</h2>
-    <p class="modal-addr">📍 ${place.addr}</p>
+    <div class="modal-rating">
+      <span class="stars-lg">${stars}</span>
+      <span class="rating-big">${place.rating || '–'}</span>
+      <span class="rating-out">/ 5</span>
+      ${place.reviewCount ? `<span class="review-count">· ${place.reviewCount} opinii</span>` : ''}
+    </div>
+    <p class="modal-addr">📍 ${place.addr}${dist != null ? ` · ${PE.formatDistance(dist)} od Ciebie` : ''}</p>
     <p class="modal-desc">${place.desc}</p>
+
+    ${hoursTable ? `
+      <div class="modal-section-title">⏰ Godziny otwarcia</div>
+      <div class="hours-table">${hoursTable}</div>
+    ` : ''}
+
     <div class="modal-details">
-      <div class="modal-detail">
-        <span class="modal-detail-icon">⏰</span>
-        <span><strong>Godziny:</strong> ${place.hours}</span>
-      </div>
       ${place.phone ? `
         <div class="modal-detail">
           <span class="modal-detail-icon">📞</span>
@@ -770,10 +983,13 @@ function openPlaceModal(id) {
       ${place.tags ? `
         <div class="modal-detail" style="flex-wrap:wrap;gap:6px">
           <span class="modal-detail-icon">🏷️</span>
-          ${place.tags.map(t => `<span style="background:var(--surface2);padding:3px 10px;border-radius:50px;font-size:12px">${t}</span>`).join('')}
+          ${place.tags.map(t => `<span style="background:var(--surface2);padding:3px 10px;border-radius:50px;font-size:12px">#${t}</span>`).join('')}
         </div>
       ` : ''}
     </div>
+
+    ${reviewsHtml}
+
     <div class="modal-actions">
       <button class="modal-action-btn btn-primary" onclick="flyToPlace(${place.id});closeModal()">
         🗺️ Pokaż na mapie
@@ -782,10 +998,124 @@ function openPlaceModal(id) {
         🧭 Nawiguj
       </button>
     </div>
+    <div class="modal-actions" style="margin-top:8px">
+      <button class="modal-action-btn btn-secondary" onclick="sharePlace(${place.id})">
+        🔗 Udostępnij
+      </button>
+      <button class="modal-action-btn btn-secondary" onclick="showQRCode(${place.id})">
+        📱 Kod QR
+      </button>
+      ${place.phone ? `<button class="modal-action-btn btn-secondary" onclick="window.location.href='tel:${place.phone}'">📞 Zadzwoń</button>` : ''}
+    </div>
+    <div id="qrContainer" class="qr-container hidden"></div>
   `;
 
   document.getElementById('modalOverlay').classList.remove('hidden');
   document.getElementById('modalOverlay').style.display = 'flex';
+}
+
+// Sync favorite button between modal and re-render the grid
+function syncModalFav(id) {
+  if (state.currentSection === 'places') renderPlaces(state.searchQuery);
+}
+
+// Add a review (stored in localStorage, prepended to reviews)
+function addReviewPrompt(id) {
+  const place = APP_DATA.places.find(p => p.id === id);
+  if (!place) return;
+  const text = prompt('Twoja opinia o "' + place.name + '":');
+  if (!text || !text.trim()) return;
+  const ratingStr = prompt('Ocena 1–5:', '5');
+  const rating = Math.max(1, Math.min(5, parseInt(ratingStr) || 5));
+  if (!place.reviews) place.reviews = [];
+  place.reviews.unshift({ name: 'Ty', rating, text: text.trim(), date: 'przed chwilą' });
+  place.reviewCount = place.reviews.length;
+  // persist user reviews
+  try {
+    const key = 'lucznicza_reviews_' + id;
+    const stored = JSON.parse(localStorage.getItem(key) || '[]');
+    stored.unshift({ name: 'Ty', rating, text: text.trim(), date: new Date().toLocaleDateString('pl') });
+    localStorage.setItem(key, JSON.stringify(stored));
+  } catch {}
+  showToast('✅ Dziękujemy za opinię!');
+  openPlaceModal(id); // refresh modal
+}
+
+// Share place
+function sharePlace(id) {
+  const place = APP_DATA.places.find(p => p.id === id);
+  if (!place) return;
+  const shareData = {
+    title: place.name,
+    text: `${place.name} — ${place.addr}. Sprawdź w przewodniku Łucznicza & Tarczowa!`,
+    url: window.location.href.split('#')[0] + '#miejsce-' + id
+  };
+  if (navigator.share) {
+    navigator.share(shareData).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(shareData.url).then(() => {
+      showToast('🔗 Link skopiowany do schowka');
+    }).catch(() => showToast('🔗 ' + shareData.url));
+  }
+}
+
+// Show QR code for the place (free QR API)
+function showQRCode(id) {
+  const place = APP_DATA.places.find(p => p.id === id);
+  if (!place) return;
+  const container = document.getElementById('qrContainer');
+  if (!container) return;
+
+  if (!container.classList.contains('hidden')) {
+    container.classList.add('hidden');
+    container.innerHTML = '';
+    return;
+  }
+
+  // Google Maps navigation link encoded in QR
+  const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${place.coords[1]},${place.coords[0]}`;
+  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(navUrl)}`;
+  container.innerHTML = `
+    <div class="qr-inner">
+      <img src="${qrSrc}" alt="Kod QR — nawigacja do ${place.name}" width="180" height="180" />
+      <p>📱 Zeskanuj telefonem, aby nawigować do<br><strong>${place.name}</strong></p>
+    </div>
+  `;
+  container.classList.remove('hidden');
+}
+
+// ===== PROXIMITY NOTIFICATIONS (near me alerts) =====
+function initProximityAlerts() {
+  if (!navigator.geolocation) return;
+  const PE = window.placesEnhanced;
+  if (!PE) return;
+
+  const notified = new Set();
+  navigator.geolocation.watchPosition(
+    pos => {
+      PE.setUserLocation(pos.coords.latitude, pos.coords.longitude);
+      APP_DATA.places.forEach(p => {
+        const d = PE.distanceToPlace(p);
+        if (d != null && d < 0.1 && !notified.has(p.id)) { // within 100m
+          notified.add(p.id);
+          notifyNearby(p, Math.round(d * 1000));
+        }
+      });
+    },
+    () => {},
+    { enableHighAccuracy: false, maximumAge: 60000, timeout: 30000 }
+  );
+}
+
+function notifyNearby(place, meters) {
+  const msg = `📍 Jesteś ${meters}m od: ${place.name}`;
+  showToast(msg);
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('Łucznicza & Tarczowa', {
+      body: `${place.emoji} ${place.name} — ${meters}m od Ciebie`,
+      tag: 'nearby-' + place.id
+    });
+  }
 }
 
 function closeModal() {

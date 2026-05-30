@@ -296,6 +296,26 @@
             <button class="filter-tab" data-filter="service">Usługi</button>
             <button class="filter-tab" data-filter="edu">Edukacja</button>
           </div>
+
+          <!-- Toolbar: sortowanie + ulubione -->
+          <div class="places-toolbar">
+            <div class="places-count" id="placesCount"></div>
+            <div class="places-tools">
+              <button class="places-tool-btn" id="favToggleBtn" title="Pokaż ulubione">
+                🤍 Ulubione
+              </button>
+              <button class="places-tool-btn" id="distSortBtn" title="Sortuj wg odległości">
+                📍 Blisko mnie
+              </button>
+              <select id="sortSelect" class="sort-select" title="Sortowanie">
+                <option value="default">⭐ Polecane</option>
+                <option value="rating">📈 Najwyżej oceniane</option>
+                <option value="name">🔤 Alfabetycznie</option>
+                <option value="distance">📍 Odległość</option>
+              </select>
+            </div>
+          </div>
+
           <div class="places-grid" id="placesGrid"></div>
         </div>
       </section>
@@ -653,6 +673,7 @@
   </script>
 
   <script src="data.js"></script>
+  <script src="places-enhanced.js"></script>
   <script src="community-data.js"></script>
   <script src="community-ui.js"></script>
   <script src="map-fix.js"></script>

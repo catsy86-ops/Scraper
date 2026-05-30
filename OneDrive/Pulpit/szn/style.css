@@ -2031,3 +2031,170 @@ body {
 .leaflet-popup-close-button {
   color: var(--text2, #9999bb) !important;
 }
+
+/* ===================================================== */
+/* ===== MIEJSCA — ENHANCED (DUŻY PROJEKT) ============= */
+/* ===================================================== */
+
+/* Toolbar */
+.places-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 18px; flex-wrap: wrap;
+}
+.places-count { font-size: 13px; color: var(--text2); font-weight: 600; }
+.places-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.places-tool-btn {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 50px; padding: 7px 14px; font-size: 12px;
+  font-weight: 600; color: var(--text2); cursor: pointer;
+  transition: var(--transition); white-space: nowrap;
+}
+.places-tool-btn:hover { border-color: var(--accent); color: var(--text); }
+.places-tool-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+.sort-select {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 50px; padding: 7px 14px; font-size: 12px;
+  font-weight: 600; color: var(--text); cursor: pointer; outline: none;
+  transition: var(--transition);
+}
+.sort-select:hover { border-color: var(--accent); }
+
+/* Featured ribbon */
+.place-card { position: relative; }
+.place-card.is-featured { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow-sm); }
+.featured-ribbon {
+  position: absolute; top: 10px; left: 0; z-index: 3;
+  background: linear-gradient(135deg, #6c63ff, #ff6584); color: white;
+  font-size: 10px; font-weight: 700; padding: 4px 12px 4px 10px;
+  border-radius: 0 50px 50px 0; letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(108,99,255,0.4);
+}
+
+/* Favorite button on card */
+.fav-btn {
+  position: absolute; top: 8px; right: 8px; z-index: 4;
+  background: rgba(0,0,0,0.35); backdrop-filter: blur(6px);
+  border: none; border-radius: 50%; width: 34px; height: 34px;
+  font-size: 16px; cursor: pointer; transition: var(--transition);
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1;
+}
+.fav-btn:hover { transform: scale(1.15); background: rgba(0,0,0,0.5); }
+.fav-btn.active { animation: favPop 0.3s ease; }
+@keyframes favPop {
+  0% { transform: scale(1); } 50% { transform: scale(1.4); } 100% { transform: scale(1); }
+}
+
+/* Status badge on header */
+.status-badge {
+  position: absolute; bottom: 8px; left: 8px; z-index: 3;
+  font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 50px;
+  backdrop-filter: blur(6px);
+}
+.status-badge.is-open { background: rgba(67,233,123,0.9); color: #08321b; }
+.status-badge.is-closed { background: rgba(255,101,132,0.9); color: #3a0d18; }
+
+/* Card rating row */
+.card-rating { display: flex; align-items: center; gap: 6px; margin: 6px 0; flex-wrap: wrap; }
+.card-rating .stars { color: #ffd93d; font-size: 14px; letter-spacing: 1px; }
+.card-rating .rating-num { font-size: 13px; font-weight: 700; color: var(--text); }
+.card-rating .review-count { font-size: 11px; color: var(--text3); }
+.card-price { margin-left: auto; font-size: 12px; }
+.price-free { color: var(--accent3); font-weight: 700; font-size: 11px; }
+.price-level { font-size: 11px; }
+
+/* Card tags */
+.card-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.card-tag {
+  font-size: 10px; color: var(--text3); background: var(--surface2);
+  padding: 2px 8px; border-radius: 50px;
+}
+.place-card-hours.closed { color: var(--accent2); }
+
+/* ===== MODAL ENHANCED ===== */
+.modal-hero {
+  position: relative; height: 140px; border-radius: var(--radius) var(--radius) 0 0;
+  display: flex; align-items: center; justify-content: center;
+  margin: -24px -24px 0; overflow: hidden;
+}
+.modal-hero-emoji { font-size: 72px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3)); }
+.modal-fav-btn {
+  position: absolute; top: 12px; right: 12px;
+  background: rgba(0,0,0,0.35); backdrop-filter: blur(6px);
+  border: none; border-radius: 50%; width: 42px; height: 42px;
+  font-size: 20px; cursor: pointer; transition: var(--transition);
+}
+.modal-fav-btn:hover { transform: scale(1.15); }
+.modal-status {
+  position: absolute; bottom: 12px; left: 12px;
+  font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 50px;
+  backdrop-filter: blur(6px);
+}
+.modal-status.is-open { background: rgba(67,233,123,0.9); color: #08321b; }
+.modal-status.is-closed { background: rgba(255,101,132,0.9); color: #3a0d18; }
+.modal-price { font-size: 14px; }
+.modal-featured {
+  font-size: 11px; font-weight: 700; color: white;
+  background: linear-gradient(135deg, #6c63ff, #ff6584);
+  padding: 3px 10px; border-radius: 50px; letter-spacing: 0.5px;
+}
+.modal-rating { display: flex; align-items: baseline; gap: 8px; margin: 8px 0 12px; }
+.modal-rating .stars-lg { color: #ffd93d; font-size: 20px; letter-spacing: 2px; }
+.modal-rating .rating-big { font-size: 24px; font-weight: 700; }
+.modal-rating .rating-out { font-size: 14px; color: var(--text3); }
+.modal-rating .review-count { font-size: 13px; color: var(--text2); }
+
+.modal-section-title {
+  font-size: 15px; font-weight: 700; margin: 20px 0 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* Weekly hours table */
+.hours-table {
+  background: var(--surface); border-radius: var(--radius-sm);
+  padding: 8px 14px; border: 1px solid var(--border);
+}
+.hours-row {
+  display: flex; justify-content: space-between; padding: 6px 0;
+  font-size: 13px; border-bottom: 1px solid var(--border);
+}
+.hours-row:last-child { border-bottom: none; }
+.hours-row.today { font-weight: 700; color: var(--accent); }
+.hours-row .closed { color: var(--accent2); }
+
+/* Reviews */
+.reviews-block { display: flex; flex-direction: column; gap: 12px; }
+.review-item {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px 14px;
+}
+.review-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.review-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(135deg, #6c63ff, #ff6584); color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px; flex-shrink: 0;
+}
+.review-name { font-size: 13px; font-weight: 600; }
+.review-date { font-size: 11px; color: var(--text3); }
+.review-stars { margin-left: auto; color: #ffd93d; font-size: 12px; }
+.review-text { font-size: 13px; color: var(--text2); line-height: 1.5; }
+.add-review-btn {
+  margin-top: 12px; width: 100%; background: var(--surface2);
+  border: 1px dashed var(--border); border-radius: var(--radius-sm);
+  padding: 10px; font-size: 13px; font-weight: 600; color: var(--text);
+  cursor: pointer; transition: var(--transition);
+}
+.add-review-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* QR code container */
+.qr-container {
+  margin-top: 14px; text-align: center;
+  animation: fadeInUp 0.3s ease;
+}
+.qr-inner {
+  background: white; border-radius: var(--radius-sm);
+  padding: 16px; display: inline-block;
+}
+.qr-inner img { display: block; border-radius: 6px; }
+.qr-inner p { color: #333; font-size: 12px; margin-top: 10px; line-height: 1.4; }
