@@ -22,6 +22,20 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 
+  <!-- Suppress Firefox WebGL deprecation warnings -->
+  <script>
+    const originalWarn = console.warn;
+    console.warn = function(...args) {
+      const msg = args[0]?.toString() || '';
+      if (msg.includes('WEBGL_debug_renderer_info') || 
+          msg.includes('texImage: Alpha-premult') ||
+          msg.includes('InstallTrigger')) {
+        return; // suppress these warnings
+      }
+      originalWarn.apply(console, args);
+    };
+  </script>
+
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
