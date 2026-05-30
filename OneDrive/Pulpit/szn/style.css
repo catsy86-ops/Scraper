@@ -3547,3 +3547,182 @@ body.offline::after {
 .pp-avatar-opt.active { border-color: var(--accent); background: rgba(108,99,255,0.15); }
 .profile-sidebar-btn { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; font-size: 13px; font-weight: 600; color: var(--text); cursor: pointer; margin-bottom: 8px; transition: var(--transition); }
 .profile-sidebar-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ===================================================== */
+/* ===== TRASY — MEETUP SYSTEM ========================= */
+/* ===================================================== */
+
+.meetup-section {
+  border-top: 2px solid var(--border);
+  margin-top: 16px; padding-top: 4px;
+}
+
+/* Block */
+.mu-block {
+  padding: 14px 0 10px;
+  border-bottom: 1px solid var(--border);
+}
+.mu-block:last-child { border-bottom: none; }
+.mu-block-title {
+  font-size: 13px; font-weight: 800; color: var(--text);
+  margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+}
+.mu-count {
+  background: var(--surface2); color: var(--text2);
+  font-size: 11px; font-weight: 700; padding: 1px 7px;
+  border-radius: 50px; min-width: 20px; text-align: center;
+}
+.mu-add-btn {
+  margin-left: auto; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 50px; padding: 4px 12px; font-size: 11px; font-weight: 700;
+  color: var(--text2); cursor: pointer; transition: var(--transition);
+}
+.mu-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+.mu-empty { font-size: 12px; color: var(--text3); padding: 4px 0 8px; font-style: italic; }
+
+/* Participants */
+.mu-participants { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.mu-participant {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; background: var(--surface2); border-radius: var(--radius-sm);
+  animation: fadeInUp 0.3s ease;
+}
+.mu-avatar {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 800; color: #fff;
+}
+.mu-p-info { flex: 1; }
+.mu-p-nick { font-size: 13px; font-weight: 700; }
+.mu-p-time { font-size: 10px; color: var(--text3); }
+.mu-p-you {
+  font-size: 9px; font-weight: 800; background: var(--accent);
+  color: #fff; padding: 2px 8px; border-radius: 50px;
+}
+
+/* Buttons */
+.mu-btn {
+  width: 100%; padding: 10px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 700; cursor: pointer; border: none;
+  transition: var(--transition); margin-top: 8px; text-align: center;
+}
+.mu-btn-join { color: #fff; }
+.mu-btn-join:hover { opacity: 0.88; transform: translateY(-1px); }
+.mu-btn-leave {
+  background: var(--surface2); color: var(--text2);
+  border: 1px solid var(--border);
+}
+.mu-btn-leave:hover { border-color: var(--accent2); color: var(--accent2); }
+.mu-btn-primary { color: #fff; }
+.mu-btn-cancel {
+  background: var(--surface2); color: var(--text2);
+  border: 1px solid var(--border);
+}
+
+/* Meetup form */
+.mu-form {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 14px; margin-bottom: 12px;
+  animation: fadeInUp 0.25s ease;
+}
+.mu-form-title { font-size: 13px; font-weight: 800; margin-bottom: 10px; }
+.mu-form-row {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 8px; font-size: 12px; color: var(--text2);
+}
+.mu-form-row label { min-width: 100px; flex-shrink: 0; }
+.mu-input {
+  flex: 1; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 10px; color: var(--text); font-size: 13px;
+  outline: none; transition: var(--transition);
+}
+.mu-input:focus { border-color: var(--accent); }
+.mu-form-actions { display: flex; gap: 8px; margin-top: 10px; }
+.mu-form-actions .mu-btn { margin-top: 0; flex: 1; }
+
+/* Meetup cards */
+.mu-meetups-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+.mu-meetup-card {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px 14px;
+  animation: fadeInUp 0.3s ease; transition: var(--transition);
+}
+.mu-meetup-card:hover { border-color: var(--accent); }
+.mu-meetup-card.past { opacity: 0.6; }
+.mu-meetup-header {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+}
+.mu-meetup-day-badge {
+  font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 50px;
+  background: var(--surface); color: var(--text2);
+}
+.mu-meetup-day-badge.today { background: rgba(255,101,132,0.2); color: #ff6584; }
+.mu-meetup-day-badge.past  { background: rgba(67,233,123,0.15); color: #43e97b; }
+.mu-meetup-time { font-size: 13px; font-weight: 700; color: var(--accent); }
+.mu-meetup-delete {
+  margin-left: auto; background: none; border: none;
+  cursor: pointer; font-size: 14px; opacity: 0.5;
+}
+.mu-meetup-delete:hover { opacity: 1; }
+.mu-meetup-place { font-size: 13px; color: var(--text); margin-bottom: 4px; }
+.mu-meetup-note { font-size: 12px; color: var(--text2); margin-bottom: 4px; font-style: italic; }
+.mu-meetup-organizer { font-size: 11px; color: var(--text3); margin-bottom: 10px; }
+.mu-meetup-attendees { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.mu-attendees-avatars { display: flex; }
+.mu-att-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 800; color: #fff;
+  border: 2px solid var(--surface2); margin-left: -6px;
+}
+.mu-att-avatar:first-child { margin-left: 0; }
+.mu-att-more {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--surface); border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--text2);
+  margin-left: -6px;
+}
+.mu-att-count { font-size: 12px; color: var(--text2); }
+.mu-meetup-card .mu-btn { padding: 8px; font-size: 12px; }
+
+/* Comments */
+.mu-comments-list {
+  max-height: 240px; overflow-y: auto; margin-bottom: 10px;
+  display: flex; flex-direction: column; gap: 8px;
+  scrollbar-width: thin;
+}
+.mu-comment {
+  display: flex; gap: 10px; align-items: flex-start;
+  animation: fadeInUp 0.25s ease;
+}
+.mu-comment-avatar {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800; color: #fff;
+}
+.mu-comment-body { flex: 1; }
+.mu-comment-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
+.mu-comment-nick { font-size: 12px; font-weight: 700; }
+.mu-comment-time { font-size: 10px; color: var(--text3); }
+.mu-comment-text { font-size: 13px; color: var(--text2); line-height: 1.4; }
+.mu-comment-form { display: flex; gap: 8px; }
+.mu-comment-input {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 50px; padding: 8px 14px; color: var(--text); font-size: 13px;
+  outline: none; transition: var(--transition);
+}
+.mu-comment-input:focus { border-color: var(--accent); }
+.mu-comment-send {
+  width: 38px; height: 38px; border-radius: 50%; border: none;
+  color: #fff; font-size: 16px; cursor: pointer; flex-shrink: 0;
+  transition: var(--transition); display: flex; align-items: center; justify-content: center;
+}
+.mu-comment-send:hover { opacity: 0.88; transform: scale(1.05); }
+
+/* Mobile */
+@media (max-width: 480px) {
+  .mu-form-row { flex-direction: column; align-items: flex-start; }
+  .mu-form-row label { min-width: unset; }
+  .mu-input { width: 100%; }
+}

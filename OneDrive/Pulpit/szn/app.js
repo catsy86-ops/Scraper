@@ -801,6 +801,7 @@ function renderRoutes() {
       <div class="rst-item"><span class="rst-num">${APP_DATA.routes.filter(r=>r.type==='walk').length}</span><span class="rst-label">Spacerowych</span></div>
       <div class="rst-item"><span class="rst-num">${APP_DATA.routes.filter(r=>r.type==='bike').length}</span><span class="rst-label">Rowerowych</span></div>
       <div class="rst-item"><span class="rst-num">${APP_DATA.routes.filter(r=>r.type==='run').length}</span><span class="rst-label">Biegowych</span></div>
+      <div class="rst-item"><span class="rst-num" id="totalParticipants">0</span><span class="rst-label">Uczestników</span></div>
     </div>
 
     <!-- Filter tabs -->
@@ -827,6 +828,14 @@ function renderRoutes() {
   });
 
   renderRouteCards();
+  // Update total participants count
+  setTimeout(() => {
+    if (window.routesMeetup) {
+      const total = APP_DATA.routes.reduce((sum, r) => sum + window.routesMeetup.getJoined(r.id).length, 0);
+      const el = document.getElementById('totalParticipants');
+      if (el) el.textContent = total;
+    }
+  }, 100);
 }
 
 function renderRouteCards() {
@@ -969,6 +978,10 @@ function renderRouteCard(r, isFav) {
           <span class="timer-time" id="timer-time-${r.id}">00:00</span>
           <span class="timer-label">czas trasy</span>
         </div>
+
+        <!-- ===== MEETUP SECTION ===== -->
+        ${window.routesMeetup ? window.routesMeetup.renderMeetupSection(r.id, r.color) : ''}
+
       </div>
 
       <!-- Toggle button -->
