@@ -77,13 +77,21 @@
 
   <!-- ===== SPLASH SCREEN ===== -->
   <div id="splash">
+    <div class="splash-bg" id="splashBg"></div>
     <div class="splash-content">
-      <div class="splash-icon">🏹</div>
+      <div class="splash-greeting" id="splashGreeting">Ładowanie...</div>
+      <div class="splash-icon" id="splashIcon">🏹</div>
       <h1 class="splash-title">Niebuszewo Guide</h1>
       <p class="splash-sub">Szczecin · Przewodnik Interaktywny</p>
+      <div class="splash-weather-row" id="splashWeather" style="display:none">
+        <span id="splashWeatherIcon">🌡️</span>
+        <span id="splashWeatherTemp">--°C</span>
+        <span id="splashWeatherDesc"></span>
+      </div>
       <div class="splash-loader">
         <div class="loader-bar"></div>
       </div>
+      <div class="splash-tip" id="splashTip"></div>
     </div>
   </div>
 
@@ -730,6 +738,7 @@
   <script src="place-images.js"></script>
   <script src="user-profile.js"></script>
   <script src="routes-meetup.js"></script>
+  <script src="ux-enhancements.js"></script>
   <script src="pwa.js"></script>
   <script src="pogon-mascot.js"></script>
   <script src="app.js"></script>

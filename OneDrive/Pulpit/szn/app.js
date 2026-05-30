@@ -1317,7 +1317,10 @@ function renderTransport() {
 function renderEvents() {
   const container = document.getElementById('eventsList');
   if (!container) return;
-  container.innerHTML = APP_DATA.events.map(e => `
+  container.innerHTML = APP_DATA.events.map((e, i) => {
+    const eventId = `${e.day}-${e.month}`;
+    const hasReminder = window.isReminderSet ? window.isReminderSet(eventId) : false;
+    return `
     <div class="event-card">
       <div class="event-date">
         <div class="event-day">${e.day}</div>
@@ -1327,10 +1330,17 @@ function renderEvents() {
         <div class="event-name">${e.name}</div>
         <div class="event-place">📍 ${e.place}</div>
         <div class="event-desc">${e.desc}</div>
-        <span class="event-tag">${e.tag}</span>
+        <div class="event-footer">
+          <span class="event-tag">${e.tag}</span>
+          <button class="event-remind-btn ${hasReminder ? 'active' : ''}"
+            onclick="toggleEventReminder('${eventId}','${e.name.replace(/'/g,"\\'")}','${e.day}','${e.month}');this.classList.toggle('active')"
+            title="${hasReminder ? 'Usuń przypomnienie' : 'Przypomnij mi'}">
+            ${hasReminder ? '🔔' : '🔕'} ${hasReminder ? 'Przypomnę' : 'Przypomnij'}
+          </button>
+        </div>
       </div>
     </div>
-  `).join('');
+  `}).join('');
 }
 
 // ===== MODAL =====
@@ -1454,6 +1464,9 @@ function openPlaceModal(id) {
       ${place.phone ? `<button class="modal-action-btn btn-secondary" onclick="window.location.href='tel:${place.phone}'">📞 Zadzwoń</button>` : ''}
     </div>
     <div id="qrContainer" class="qr-container hidden"></div>
+
+    <!-- Notatka prywatna -->
+    ${window.placeNotes ? window.placeNotes.renderNoteSection(place.id) : ''}
   `;
 
   document.getElementById('modalOverlay').classList.remove('hidden');

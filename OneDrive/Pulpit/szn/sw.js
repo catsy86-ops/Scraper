@@ -11,7 +11,7 @@ const APP_SHELL = [
   '/navigation.js', '/search.js', '/pwa.js',
   '/community-data.js', '/community-ui.js',
   '/routes-meetup.js', '/user-profile.js',
-  '/place-images.js', '/pogon-mascot.js',
+  '/place-images.js', '/ux-enhancements.js', '/pogon-mascot.js',
   '/google-maps.js', '/manifest.json'
 ];
 
