@@ -2989,3 +2989,76 @@ body {
   .demo-donut-wrap { flex-direction: column; align-items: flex-start; }
   .demo-bar-val { display: none; }
 }
+
+/* ===================================================== */
+/* ===== NOWE WIDGETY REAL-TIME ======================== */
+/* ===================================================== */
+
+/* IMGW */
+.imgw-grid { padding: 12px 16px; display: flex; flex-direction: column; gap: 14px; }
+.imgw-section {}
+.imgw-section-title { font-size: 12px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.imgw-cells { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; }
+.imgw-cell {
+  background: var(--surface2); border-radius: var(--radius-sm);
+  padding: 10px 8px; text-align: center;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.imgw-cell.water-alarm { background: rgba(255,0,0,0.15); border: 1px solid #ff0000; }
+.imgw-cell.water-warn  { background: rgba(255,126,0,0.15); border: 1px solid #ff7e00; }
+.imgw-cell.water-high  { background: rgba(255,217,61,0.15); }
+.imgw-cell.water-ok    { background: rgba(67,233,123,0.15); }
+.imgw-val { font-size: 16px; font-weight: 800; color: var(--text); }
+.imgw-label { font-size: 10px; color: var(--text3); }
+.imgw-updated { font-size: 10px; color: var(--text3); margin-top: 6px; }
+
+/* GIOŚ */
+.gios-main {
+  margin: 12px 16px; padding: 14px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; gap: 14px;
+}
+.gios-index { font-size: 36px; font-weight: 900; min-width: 50px; text-align: center; }
+.gios-category { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.gios-advice { font-size: 12px; color: var(--text2); line-height: 1.4; }
+.gios-cells {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px; padding: 0 16px 12px;
+}
+.gios-cell {
+  background: var(--surface2); border-radius: var(--radius-sm);
+  padding: 8px; text-align: center;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.gios-val { font-size: 14px; font-weight: 700; color: var(--text); }
+.gios-label { font-size: 9px; color: var(--text3); }
+
+/* Moon */
+.moon-main {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 16px;
+}
+.moon-emoji { font-size: 52px; line-height: 1; }
+.moon-name { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.moon-illumination { font-size: 13px; color: var(--text2); margin-bottom: 4px; }
+.moon-days { font-size: 12px; color: var(--text2); }
+.moon-bar-wrap { padding: 0 16px 16px; }
+.moon-bar-track {
+  height: 8px; background: var(--surface2); border-radius: 4px;
+  overflow: hidden; margin-bottom: 6px;
+}
+.moon-bar-fill {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, #1a1a2e, #6c63ff, #fff, #6c63ff, #1a1a2e);
+  transition: width 1s ease;
+}
+.moon-bar-labels {
+  display: flex; justify-content: space-between;
+  font-size: 9px; color: var(--text3);
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .imgw-cells { grid-template-columns: repeat(3, 1fr); }
+  .gios-cells { grid-template-columns: repeat(3, 1fr); }
+  .moon-emoji { font-size: 40px; }
+}

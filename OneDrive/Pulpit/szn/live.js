@@ -635,3 +635,310 @@ document.addEventListener('click', e => {
     }, 100);
   }
 });
+
+
+// ============================================================
+// ===== NOWE ŹRÓDŁA REAL-TIME DATA ===========================
+// ============================================================
+
+// ===== 1. IMGW — Dane meteorologiczne + hydrologiczne =====
+async function fetchImgw() {
+  const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
+  const url = isLocal
+    ? null  // skip on localhost
+    : '/api/imgw-szczecin';
+
+  if (!url) {
+    renderImgwWidget(null);
+    return;
+  }
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('IMGW API error');
+    const data = await res.json();
+    live.imgw = data;
+    renderImgwWidget(data);
+    updateTicker();
+  } catch (err) {
+    console.warn('IMGW fetch failed:', err.message);
+    renderImgwWidget(null);
+  }
+}
+
+function renderImgwWidget(data) {
+  const el = document.getElementById('liveImgwCard');
+  if (!el) return;
+
+  if (!data || !data.synop) {
+    el.innerHTML = `
+      <div class="live-card-header">
+        <span class="live-card-icon">🌊</span>
+        <div><h3>IMGW — Dane lokalne</h3>
+        <span class="live-tag"><span class="live-dot"></span> Instytut Meteorologiczny</span></div>
+      </div>
+      <div style="padding:16px;color:var(--text2);font-size:13px">⚠️ Dane IMGW niedostępne</div>`;
+    return;
+  }
+
+  const s = data.synop;
+  const h = data.hydro;
+  const windDirStr = getWindDir(s.windDir);
+  const waterLevelStatus = h ? getWaterLevelStatus(h.waterLevel) : null;
+
+  el.innerHTML = `
+    <div class="live-card-header">
+      <span class="live-card-icon">🌊</span>
+      <div>
+        <h3>IMGW — Dane lokalne Szczecin</h3>
+        <span class="live-tag"><span class="live-dot"></span> Instytut Meteorologiczny i Gosp. Wodnej</span>
+      </div>
+      <button class="live-refresh-btn" onclick="fetchImgw()">🔄</button>
+    </div>
+    <div class="imgw-grid">
+      <div class="imgw-section">
+        <div class="imgw-section-title">🌡️ Meteorologia (stacja Szczecin)</div>
+        <div class="imgw-cells">
+          <div class="imgw-cell">
+            <span class="imgw-val">${s.temp}°C</span>
+            <span class="imgw-label">Temperatura</span>
+          </div>
+          <div class="imgw-cell">
+            <span class="imgw-val">${s.windSpeed} km/h</span>
+            <span class="imgw-label">Wiatr ${windDirStr}</span>
+          </div>
+          <div class="imgw-cell">
+            <span class="imgw-val">${s.humidity}%</span>
+            <span class="imgw-label">Wilgotność</span>
+          </div>
+          <div class="imgw-cell">
+            <span class="imgw-val">${s.pressure} hPa</span>
+            <span class="imgw-label">Ciśnienie</span>
+          </div>
+          <div class="imgw-cell">
+            <span class="imgw-val">${s.precipitation} mm</span>
+            <span class="imgw-label">Opady (suma)</span>
+          </div>
+        </div>
+        <div class="imgw-updated">Pomiar: ${s.measuredAt}</div>
+      </div>
+      ${h ? `
+      <div class="imgw-section">
+        <div class="imgw-section-title">🌊 Hydrologia — Odra (${h.station})</div>
+        <div class="imgw-cells">
+          <div class="imgw-cell ${waterLevelStatus?.cls}">
+            <span class="imgw-val">${h.waterLevel} cm</span>
+            <span class="imgw-label">Stan wody</span>
+          </div>
+          ${h.waterTemp != null ? `
+          <div class="imgw-cell">
+            <span class="imgw-val">${h.waterTemp}°C</span>
+            <span class="imgw-label">Temp. wody</span>
+          </div>` : ''}
+          <div class="imgw-cell">
+            <span class="imgw-val" style="color:${waterLevelStatus?.color}">${waterLevelStatus?.label}</span>
+            <span class="imgw-label">Status</span>
+          </div>
+        </div>
+        <div class="imgw-updated">Pomiar: ${h.measuredAt}</div>
+      </div>` : ''}
+    </div>`;
+}
+
+function getWaterLevelStatus(level) {
+  // Odra Szczecin: alarm ~600cm, ostrzeżenie ~550cm, normalny ~400-520cm
+  if (level >= 600) return { label: '🚨 Alarm', color: '#ff0000', cls: 'water-alarm' };
+  if (level >= 550) return { label: '⚠️ Ostrzeżenie', color: '#ff7e00', cls: 'water-warn' };
+  if (level >= 480) return { label: '📈 Podwyższony', color: '#ffd93d', cls: 'water-high' };
+  if (level >= 300) return { label: '✅ Normalny', color: '#43e97b', cls: 'water-ok' };
+  return { label: '📉 Niski', color: '#a29bfe', cls: 'water-low' };
+}
+
+// ===== 2. GIOŚ — Oficjalna jakość powietrza =====
+async function fetchGios() {
+  const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
+  const url = isLocal ? null : '/api/gios-szczecin';
+
+  if (!url) {
+    renderGiosWidget(null);
+    return;
+  }
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('GIOŚ API error');
+    const data = await res.json();
+    live.gios = data;
+    renderGiosWidget(data);
+    updateTicker();
+  } catch (err) {
+    console.warn('GIOŚ fetch failed:', err.message);
+    renderGiosWidget(null);
+  }
+}
+
+function renderGiosWidget(data) {
+  const el = document.getElementById('liveGiosCard');
+  if (!el) return;
+
+  if (!data || data.source === 'error' || !data.category) {
+    el.innerHTML = `
+      <div class="live-card-header">
+        <span class="live-card-icon">🏭</span>
+        <div><h3>GIOŚ — Jakość powietrza</h3>
+        <span class="live-tag">Oficjalne dane polskie</span></div>
+      </div>
+      <div style="padding:16px;color:var(--text2);font-size:13px">⚠️ Dane GIOŚ niedostępne</div>`;
+    return;
+  }
+
+  const pollutantLabels = { PM10: 'PM10', 'PM2.5': 'PM2.5', NO2: 'NO₂', SO2: 'SO₂', O3: 'O₃' };
+  const measurementsHtml = Object.entries(data.measurements || {}).map(([k, v]) => `
+    <div class="gios-cell">
+      <span class="gios-val">${v != null ? parseFloat(v).toFixed(1) : '--'}</span>
+      <span class="gios-label">${pollutantLabels[k] || k} μg/m³</span>
+    </div>
+  `).join('');
+
+  el.innerHTML = `
+    <div class="live-card-header">
+      <span class="live-card-icon">🏭</span>
+      <div>
+        <h3>GIOŚ — Jakość powietrza Szczecin</h3>
+        <span class="live-tag"><span class="live-dot"></span> ${data.stationName}</span>
+      </div>
+      <button class="live-refresh-btn" onclick="fetchGios()">🔄</button>
+    </div>
+    <div class="gios-main" style="background:${data.categoryColor}22;border-left:4px solid ${data.categoryColor}">
+      <div class="gios-index" style="color:${data.categoryColor}">${data.indexValue ?? '–'}</div>
+      <div class="gios-info">
+        <div class="gios-category" style="color:${data.categoryColor}">${data.category}</div>
+        <div class="gios-advice">${data.advice}</div>
+      </div>
+    </div>
+    ${measurementsHtml ? `<div class="gios-cells">${measurementsHtml}</div>` : ''}
+    <div class="imgw-updated">Obliczono: ${data.calculatedAt || '–'} · Źródło: GIOŚ</div>`;
+}
+
+// ===== 3. FAZA KSIĘŻYCA (obliczana matematycznie) =====
+function getMoonPhase() {
+  const now = new Date();
+  // Known new moon: 2000-01-06
+  const knownNewMoon = new Date('2000-01-06T18:14:00Z');
+  const synodicMonth = 29.53058867; // days
+  const diffDays = (now - knownNewMoon) / (1000 * 60 * 60 * 24);
+  const phase = ((diffDays % synodicMonth) + synodicMonth) % synodicMonth;
+  const pct = Math.round((phase / synodicMonth) * 100);
+
+  const phases = [
+    { name: 'Nów',               emoji: '🌑', min: 0,   max: 1.85  },
+    { name: 'Przybywający sierp', emoji: '🌒', min: 1.85, max: 7.38 },
+    { name: 'Pierwsza kwadra',   emoji: '🌓', min: 7.38, max: 9.22  },
+    { name: 'Przybywający garb', emoji: '🌔', min: 9.22, max: 14.77 },
+    { name: 'Pełnia',            emoji: '🌕', min: 14.77, max: 16.61 },
+    { name: 'Ubywający garb',    emoji: '🌖', min: 16.61, max: 22.15 },
+    { name: 'Ostatnia kwadra',   emoji: '🌗', min: 22.15, max: 24.0  },
+    { name: 'Ubywający sierp',   emoji: '🌘', min: 24.0,  max: 29.53 }
+  ];
+
+  const current = phases.find(p => phase >= p.min && phase < p.max) || phases[0];
+
+  // Days to next full moon and new moon
+  const daysToFull = phase < 14.77
+    ? Math.round(14.77 - phase)
+    : Math.round(synodicMonth - phase + 14.77);
+  const daysToNew = phase > 0.5
+    ? Math.round(synodicMonth - phase)
+    : Math.round(-phase + synodicMonth);
+
+  return {
+    phase,
+    pct,
+    name: current.name,
+    emoji: current.emoji,
+    daysToFull,
+    daysToNew,
+    illumination: Math.round(Math.abs(Math.cos((phase / synodicMonth) * 2 * Math.PI)) * 100)
+  };
+}
+
+function renderMoonWidget() {
+  const el = document.getElementById('liveMoonCard');
+  if (!el) return;
+
+  const moon = getMoonPhase();
+
+  el.innerHTML = `
+    <div class="live-card-header">
+      <span class="live-card-icon">${moon.emoji}</span>
+      <div>
+        <h3>Faza Księżyca</h3>
+        <span class="live-tag">Obliczana astronomicznie</span>
+      </div>
+    </div>
+    <div class="moon-main">
+      <div class="moon-emoji">${moon.emoji}</div>
+      <div class="moon-info">
+        <div class="moon-name">${moon.name}</div>
+        <div class="moon-illumination">Oświetlenie: <strong>${moon.illumination}%</strong></div>
+        <div class="moon-days">
+          🌕 Pełnia za <strong>${moon.daysToFull} dni</strong> ·
+          🌑 Nów za <strong>${moon.daysToNew} dni</strong>
+        </div>
+      </div>
+    </div>
+    <div class="moon-bar-wrap">
+      <div class="moon-bar-track">
+        <div class="moon-bar-fill" style="width:${moon.pct}%"></div>
+      </div>
+      <div class="moon-bar-labels">
+        <span>🌑 Nów</span>
+        <span>🌓 I kwadra</span>
+        <span>🌕 Pełnia</span>
+        <span>🌗 III kwadra</span>
+        <span>🌑 Nów</span>
+      </div>
+    </div>`;
+}
+
+// ===== INIT — dodaj nowe źródła do initLive =====
+const _origInitLive = window._initLiveExtended;
+document.addEventListener('DOMContentLoaded', () => {
+  const waitForApp = setInterval(() => {
+    if (!document.getElementById('app').classList.contains('hidden')) {
+      clearInterval(waitForApp);
+      // Render moon immediately (no API needed)
+      renderMoonWidget();
+      // Fetch IMGW and GIOŚ
+      fetchImgw();
+      fetchGios();
+      // Refresh every 10 minutes
+      setInterval(fetchImgw, 10 * 60 * 1000);
+      setInterval(fetchGios, 15 * 60 * 1000);
+    }
+  }, 500);
+});
+
+// Update ticker with new data sources
+const _origUpdateTicker = updateTicker;
+function updateTicker() {
+  _origUpdateTicker();
+  // Add IMGW and moon to ticker if available
+  const track = document.getElementById('tickerTrack');
+  if (!track) return;
+  const extra = [];
+  if (live.imgw?.synop) {
+    extra.push(`🌊 <strong>Odra Szczecin:</strong> Stan wody ${live.imgw.hydro?.waterLevel ?? '--'} cm · Temp. wody ${live.imgw.hydro?.waterTemp ?? '--'}°C`);
+  }
+  if (live.gios?.category) {
+    extra.push(`🏭 <strong>GIOŚ Jakość powietrza:</strong> ${live.gios.category} (indeks ${live.gios.indexValue ?? '--'})`);
+  }
+  const moon = getMoonPhase();
+  extra.push(`${moon.emoji} <strong>Księżyc:</strong> ${moon.name} · Oświetlenie ${moon.illumination}%`);
+
+  if (extra.length) {
+    const current = track.innerHTML;
+    const newItems = extra.map(i => `<span class="ticker-item">${i}</span>`).join('');
+    track.innerHTML = current + newItems;
+  }
+}
