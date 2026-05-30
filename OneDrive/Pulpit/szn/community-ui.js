@@ -9,7 +9,7 @@ const COMM_JOINED_KEY = 'comm_joined_groups';
 const COMM_LIKED_KEY  = 'comm_liked_reviews';
 
 function getVoted()  { try { return JSON.parse(localStorage.getItem(COMM_VOTED_KEY)  || '{}'); } catch { return {}; } }
-function getJoined() { try { return JSON.parse(localStorage.getItem(COMM_JOINED_KEY) || '[]'); } catch { return []; } }
+function getJoinedGroups() { try { return JSON.parse(localStorage.getItem(COMM_JOINED_KEY) || '[]'); } catch { return []; } }
 function getLiked()  { try { return JSON.parse(localStorage.getItem(COMM_LIKED_KEY)  || '[]'); } catch { return []; } }
 
 // ===== MAIN RENDER =====
@@ -218,7 +218,7 @@ function renderGroups() {
   const container = document.getElementById('groupsList');
   if (!container) return;
   const groups = window.communityAPI.getGroups();
-  const joined = getJoined();
+  const joined = getJoinedGroups();
 
   container.innerHTML = groups.map(g => {
     const isJoined = joined.includes(g.id);
@@ -251,7 +251,7 @@ function renderGroups() {
 }
 
 function toggleJoinGroup(id, btn) {
-  let joined = getJoined();
+  let joined = getJoinedGroups();
   const isJoined = joined.includes(id);
   if (isJoined) {
     joined = joined.filter(j => j !== id);

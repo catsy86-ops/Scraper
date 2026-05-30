@@ -18,31 +18,31 @@ const VEH_REFRESH_MS = 15000;
 
 // ===== FETCH & RENDER =====
 async function fetchVehicles() {
-  const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
-  if (isLocal) {
-    // Na localhost API serverless nie działa — pokaż przykładowe dane
-    renderVehicles(getSampleVehicles());
-    return;
+  // ZDiTM API wysyła CORS `*` — wołamy bezpośrednio (działa też na localhost).
+  if (window.ZDiTM) {
+    try {
+      const all = await ZDiTM.getVehicles();
+      // Filtruj do okolicy Łuczniczej (promień 1.5 km) dla wydajności i sensu
+      const nearby = ZDiTM.filterNearby(all, 53.4540, 14.5477, 1500);
+      VEHICLES.lastData = nearby;
+      renderVehicles(nearby, all.length);
+      return;
+    } catch (err) {
+      console.warn('Vehicles fetch failed:', err.message);
+      // Spróbuj cache (offline)
+      if (window.OfflineStore) {
+        const cached = await OfflineStore.getStale('zditm_vehicles');
+        if (cached && cached.length) {
+          const nearby = ZDiTM.filterNearby(cached, 53.4540, 14.5477, 1500);
+          VEHICLES.lastData = nearby;
+          renderVehicles(nearby, cached.length);
+          return;
+        }
+      }
+    }
   }
-
-  try {
-    const res = await fetch('/api/zditm-vehicles');
-    if (!res.ok) throw new Error('API error');
-    const data = await res.json();
-    VEHICLES.lastData = data.vehicles || [];
-    renderVehicles(VEHICLES.lastData, data.totalCity);
-  } catch (err) {
-    console.warn('Vehicles fetch failed:', err.message);
-  }
-}
-
-function getSampleVehicles() {
-  // Realistyczne przykładowe pojazdy dla localhost
-  return [
-    { id: 1, line: '89', type: 'bus', direction: 'Kołłątaja', nextStop: 'Łucznicza', lat: 53.4540, lon: 14.5480, bearing: 90, velocity: 32, punctuality: 0, model: 'Solaris Urbino 12', lowFloor: true },
-    { id: 2, line: '69', type: 'bus', direction: 'Rugiańska', nextStop: 'Przyjaciół Żołnierza', lat: 53.4548, lon: 14.5530, bearing: 180, velocity: 28, punctuality: -1, model: 'MAN NL283', lowFloor: true },
-    { id: 3, line: '75', type: 'bus', direction: 'Plac Rodła', nextStop: 'Bandurskiego', lat: 53.4535, lon: 14.5620, bearing: 270, velocity: 0, punctuality: 2, model: 'Solaris Urbino 18', lowFloor: true },
-  ];
+  // Brak danych — nie pokazuj nic (lepsze niż fałszywe pozycje)
+  renderVehicles([], 0);
 }
 
 function renderVehicles(vehicles, totalCity) {
@@ -211,7 +211,16 @@ function buildVehicleBadge() {
 
 function updateVehicleBadge(count, totalCity) {
   const el = document.getElementById('vbCount');
-  if (el) el.textContent = VEHICLES.lineFilter ? `${count} (linia ${VEHICLES.lineFilter})` : count;
+  if (el) {
+    if (count === 0) {
+      el.textContent = '0 w pobliżu';
+    } else {
+      el.textContent = VEHICLES.lineFilter ? `${count} (linia ${VEHICLES.lineFilter})` : count;
+    }
+  }
+  // Pokaż łączną liczbę w mieście jako tooltip
+  const badge = document.getElementById('vehicleBadge');
+  if (badge && totalCity) badge.title = `${totalCity} pojazdów w całym Szczecinie`;
 }
 
 function removeVehicleBadge() {

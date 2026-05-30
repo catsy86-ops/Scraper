@@ -924,52 +924,47 @@ const APP_DATA = {
   // ===== TRANSPORT =====
   transport: [
     {
-      type: 'tram',
-      icon: '🚃',
-      title: 'Tramwaje',
-      subtitle: 'Linie tramwajowe w pobliżu',
-      color: '#e74c3c',
-      lines: [
-        { num: '3', color: 'line-tram' },
-        { num: '7', color: 'line-tram' },
-        { num: '12', color: 'line-tram' }
-      ],
-      stops: [
-        { name: 'Łucznicza', dist: '150 m' },
-        { name: 'Tarczowa', dist: '200 m' },
-        { name: 'Centrum Handlowe', dist: '450 m' }
-      ]
-    },
-    {
       type: 'bus',
       icon: '🚌',
       title: 'Autobusy',
-      subtitle: 'Linie autobusowe w pobliżu',
-      color: '#3498db',
+      subtitle: 'Linie kursujące przez przystanek Łucznicza',
+      color: '#2980b9',
       lines: [
-        { num: '51', color: 'line-bus' },
-        { num: '64', color: 'line-bus' },
-        { num: '78', color: 'line-bus' },
-        { num: '103', color: 'line-bus' }
+        { num: '69', color: 'line-bus' },
+        { num: '89', color: 'line-bus' }
       ],
       stops: [
-        { name: 'Łucznicza / Tarczowa', dist: '80 m' },
-        { name: 'Szkoła Podstawowa', dist: '180 m' },
-        { name: 'Osiedle Łucznicza', dist: '300 m' }
+        { name: 'Łucznicza (kier. Kołłątaja)', dist: '~50 m' },
+        { name: 'Łucznicza (kier. Świergotki/Rugiańska)', dist: '~50 m' }
+      ]
+    },
+    {
+      type: 'tram',
+      icon: '🚃',
+      title: 'Tramwaje',
+      subtitle: 'Najbliższe linie tramwajowe (przesiadka)',
+      color: '#e74c3c',
+      lines: [
+        { num: '1', color: 'line-tram' },
+        { num: '3', color: 'line-tram' }
+      ],
+      stops: [
+        { name: 'Plac Kościuszki (przesiadka)', dist: '~1,2 km' },
+        { name: 'Wyzwolenia', dist: '~1,5 km' }
       ]
     },
     {
       type: 'night',
       icon: '🌙',
       title: 'Linie nocne',
-      subtitle: 'Komunikacja nocna',
+      subtitle: 'Komunikacja nocna w rejonie',
       color: '#2c3e50',
       lines: [
         { num: 'N1', color: 'line-night' },
-        { num: 'N5', color: 'line-night' }
+        { num: 'N2', color: 'line-night' }
       ],
       stops: [
-        { name: 'Łucznicza (nocna)', dist: '200 m' }
+        { name: 'Przystanki nocne w centrum', dist: '~1,2 km' }
       ]
     },
     {
@@ -980,8 +975,7 @@ const APP_DATA = {
       color: '#27ae60',
       lines: [],
       stops: [
-        { name: 'Stacja Łucznicza', dist: '120 m' },
-        { name: 'Stacja Tarczowa', dist: '250 m' }
+        { name: 'Stacja w rejonie Łuczniczej', dist: '~300 m' }
       ]
     }
   ],

@@ -185,9 +185,38 @@ function scoreMatch(query, fields) {
     if (fl === query) score += 100;
     else if (fl.startsWith(query)) score += 50;
     else if (fl.includes(query)) score += 30;
-    words.forEach(w => { if (fl.includes(w)) score += 10; });
+    // Fuzzy matching — allow 1 character difference for words > 3 chars
+    else if (query.length > 3 && fuzzyMatch(query, fl)) score += 15;
+    words.forEach(w => {
+      if (fl.includes(w)) score += 10;
+      else if (w.length > 3 && fuzzyMatch(w, fl)) score += 5;
+    });
   });
   return score;
+}
+
+// Simple fuzzy match — checks if query is "close enough" to any substring in text
+function fuzzyMatch(query, text) {
+  if (query.length < 3) return false;
+  // Levenshtein-like: allow 1 typo for every 4 chars
+  const maxErrors = Math.floor(query.length / 4);
+  // Sliding window approach
+  for (let i = 0; i <= text.length - query.length + maxErrors; i++) {
+    let errors = 0;
+    let qi = 0;
+    for (let ti = i; ti < text.length && qi < query.length; ti++) {
+      if (text[ti] === query[qi]) {
+        qi++;
+      } else {
+        errors++;
+        if (errors > maxErrors) break;
+        // Try skip in text (insertion)
+        qi++;
+      }
+    }
+    if (qi >= query.length - maxErrors) return true;
+  }
+  return false;
 }
 
 function getBadgeColor(cat) {

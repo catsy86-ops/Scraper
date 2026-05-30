@@ -11,8 +11,8 @@
 
 const API_BASE = 'https://www.zditm.szczecin.pl/api/v1';
 
-// fetch with timeout via AbortController (native fetch ignores `timeout` option)
-async function fetchWithTimeout(url, ms = 6000) {
+// fetch with timeout via AbortController + retry logic
+async function fetchWithTimeout(url, ms = 10000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), ms);
   try {
@@ -28,6 +28,24 @@ async function fetchWithTimeout(url, ms = 6000) {
   }
 }
 
+// Retry wrapper — tries up to `retries` times with exponential backoff
+async function fetchWithRetry(url, { timeout = 10000, retries = 2, backoff = 1000 } = {}) {
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetchWithTimeout(url, timeout);
+      if (res.ok) return res;
+      lastError = new Error(`HTTP ${res.status}`);
+    } catch (e) {
+      lastError = e;
+    }
+    if (attempt < retries) {
+      await new Promise(r => setTimeout(r, backoff * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'public, max-age=20, s-maxage=20');
 
@@ -37,16 +55,14 @@ export default async function handler(req, res) {
       ? (Array.isArray(stops) ? stops : String(stops).split(','))
       : ['Łucznicza', 'Tarczowa'];
 
-    // 1) Fetch all stops to resolve names → stop numbers
+    // 1) Fetch all stops to resolve names → stop numbers (with retry)
     let allStops = [];
     try {
-      const stopsRes = await fetchWithTimeout(`${API_BASE}/stops`, 6000);
-      if (stopsRes.ok) {
-        const stopsData = await stopsRes.json();
-        allStops = stopsData.data || [];
-      }
+      const stopsRes = await fetchWithRetry(`${API_BASE}/stops`, { timeout: 10000, retries: 2 });
+      const stopsData = await stopsRes.json();
+      allStops = stopsData.data || [];
     } catch (e) {
-      console.warn('Stops fetch failed:', e.message);
+      console.warn('Stops fetch failed after retries:', e.message);
     }
 
     if (!allStops.length) {
@@ -75,7 +91,7 @@ export default async function handler(req, res) {
     await Promise.all(
       matchingStops.slice(0, 4).map(async stop => {
         try {
-          const depRes = await fetchWithTimeout(`${API_BASE}/displays/${stop.number}`, 6000);
+          const depRes = await fetchWithRetry(`${API_BASE}/displays/${stop.number}`, { timeout: 10000, retries: 1 });
           if (!depRes.ok) return;
           const depData = await depRes.json();
           (depData.departures || []).slice(0, 6).forEach(dep => {
@@ -147,34 +163,28 @@ function guessType(lineNumber) {
 }
 
 /**
- * Realistic simulated departures fallback
+ * Realistic simulated departures fallback — uses REAL lines (89, 69 → Kołłątaja)
  */
 function generateSimulatedDepartures() {
   const LINES = [
-    { num: '3',   type: 'tram', dest: 'Centrum' },
-    { num: '7',   type: 'tram', dest: 'Dworzec Główny' },
-    { num: '12',  type: 'tram', dest: 'Plac Rodła' },
-    { num: '51',  type: 'bus',  dest: 'Centrum' },
-    { num: '64',  type: 'bus',  dest: 'Dworzec Niebuszewo' },
-    { num: '78',  type: 'bus',  dest: 'Centrum' },
-    { num: '103', type: 'bus',  dest: 'Osiedle Zawadzkiego' },
+    { num: '89', type: 'bus', dest: 'Kołłątaja' },
+    { num: '69', type: 'bus', dest: 'Kołłątaja' },
   ];
-  const STOPS = ['Łucznicza', 'Tarczowa', 'Osiedle Łucznicza'];
+  const STOPS = ['Łucznicza'];
   const departures = [];
 
   LINES.forEach(line => {
-    const count = 2 + Math.floor(Math.random() * 2);
-    let baseMins = 1 + Math.floor(Math.random() * 8);
-    for (let i = 0; i < count; i++) {
+    let baseMins = 1 + Math.floor(Math.random() * 6);
+    for (let i = 0; i < 4; i++) {
       departures.push({
         line: line.num,
         type: line.type,
         dest: line.dest,
-        stop: STOPS[Math.floor(Math.random() * STOPS.length)],
+        stop: STOPS[0],
         minsLeft: baseMins,
         realtime: false,
       });
-      baseMins += 3 + Math.floor(Math.random() * 10);
+      baseMins += 10;
     }
   });
 

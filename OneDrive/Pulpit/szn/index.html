@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#1a1a2e" />
   <meta name="description" content="Interaktywny przewodnik po dzielnicy Niebuszewo/Łucznicza w Szczecinie — mapa, miejsca, trasy, transport na żywo" />
+  <meta name="color-scheme" content="dark light" />
   <title>Niebuszewo Guide — Szczecin</title>
   <link rel="manifest" href="manifest.json" />
   <!-- Inline emoji favicon (prevents favicon.ico 404) -->
@@ -40,6 +41,10 @@
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+  <link rel="preconnect" href="https://api.open-meteo.com" />
+  <link rel="dns-prefetch" href="https://air-quality-api.open-meteo.com" />
+  <link rel="dns-prefetch" href="https://a.basemaps.cartocdn.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
 
   <!-- Leaflet Map Library -->
@@ -75,8 +80,11 @@
 </head>
 <body>
 
+  <!-- Skip to main content (accessibility) -->
+  <a href="#main-content" class="skip-link">Przejdź do treści głównej</a>
+
   <!-- ===== SPLASH SCREEN ===== -->
-  <div id="splash">
+  <div id="splash" role="status" aria-label="Ładowanie aplikacji">
     <div class="splash-bg" id="splashBg"></div>
     <div class="splash-content">
       <div class="splash-greeting" id="splashGreeting">Ładowanie...</div>
@@ -167,13 +175,24 @@
         </a>
       </nav>
       <div class="sidebar-footer">
+        <div class="sidebar-tools">
+          <button class="sidebar-tool-btn" onclick="SyncManager.downloadBackup()" title="Pobierz backup danych">
+            💾 Backup
+          </button>
+          <button class="sidebar-tool-btn" onclick="SyncManager.uploadBackup()" title="Przywróć z backupu">
+            📂 Przywróć
+          </button>
+          <button class="sidebar-tool-btn" onclick="SyncManager.shareViaUrl()" title="Udostępnij ulubione">
+            🔗 Sync
+          </button>
+        </div>
         <p>Szczecin © 2026</p>
       </div>
     </aside>
     <div class="sidebar-overlay hidden" id="sidebarOverlay"></div>
 
     <!-- MAIN CONTENT -->
-    <main class="main">
+    <main class="main" id="main-content" role="main">
 
       <!-- MAP SECTION -->
       <section id="section-map" class="section active">
@@ -189,8 +208,16 @@
           <!-- Map Controls (streamlined — styles handled by 🎨 switcher, locate by 🎯 FAB) -->
           <div class="map-controls">
             <button class="map-ctrl-btn" id="btnFly" title="Animacja lotu wokół dzielnicy">✈️</button>
-            <button class="map-ctrl-btn" id="btnStreetView" title="Street View (Google)">📸</button>
+            <button class="map-ctrl-btn" id="btnStreetView" title="Street View (Mapillary)">📸</button>
+            <button class="map-ctrl-btn" id="btnQuick3D" title="Budynki 3D — Łucznicza 43">🏢</button>
           </div>
+
+          <!-- Dedicated 3D Buildings FAB — always visible -->
+          <button class="buildings-3d-fab" id="buildings3dFab" title="Włącz widok budynków 3D — Łucznicza 43"
+            onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()">
+            <span class="b3d-fab-icon">🏢</span>
+            <span class="b3d-fab-label">3D</span>
+          </button>
 
           <!-- Advanced Map Tools -->
           <div class="map-tools-panel hidden" id="mapToolsPanel">
@@ -209,6 +236,9 @@
                 </button>
                 <button class="tool-btn" id="btnGeofences" title="Strefy zainteresowania">
                   🎯 Strefy
+                </button>
+                <button class="tool-btn" id="btnBuildings3D" title="Budynki 3D — Łucznicza 43 i okolice">
+                  🏢 Budynki 3D
                 </button>
               </div>
 
@@ -447,7 +477,7 @@
               <span class="live-card-icon">🚌</span>
               <div>
                 <h3>Transport publiczny</h3>
-                <span class="live-tag"><span class="live-dot"></span> Symulacja rozkładu ZDiTM</span>
+                <span class="live-tag"><span class="live-dot"></span> Odjazdy na żywo ZDiTM</span>
               </div>
               <button class="live-refresh-btn" id="refreshTransport">🔄</button>
             </div>
@@ -590,7 +620,7 @@
     </main>
 
     <!-- BOTTOM NAV (mobile) -->
-    <nav class="bottom-nav">
+    <nav class="bottom-nav" aria-label="Nawigacja główna">
       <button class="bnav-btn active" data-section="map">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
@@ -641,7 +671,7 @@
     </nav>
 
     <!-- PLACE DETAIL MODAL -->
-    <div class="modal-overlay hidden" id="modalOverlay">
+    <div class="modal-overlay hidden" id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <div class="modal" id="placeModal">
         <button class="modal-close" id="modalClose">✕</button>
         <div class="modal-content" id="modalContent"></div>
@@ -649,7 +679,7 @@
     </div>
 
     <!-- TOAST NOTIFICATION -->
-    <div class="toast hidden" id="toast"></div>
+    <div class="toast hidden" id="toast" role="alert" aria-live="polite" aria-atomic="true"></div>
 
     <!-- LIVE WEATHER WIDGET (on map) -->
     <div class="weather-widget" id="weatherWidget">
@@ -726,6 +756,11 @@
   <!-- NOTE: SW is registered by pwa.js — no unregister needed here -->
 
   <script src="data.js"></script>
+  <script src="error-handler.js"></script>
+  <script src="offline-store.js"></script>
+  <script src="zditm-live.js"></script>
+  <script src="sync-manager.js"></script>
+  <script src="performance.js"></script>
   <script src="places-enhanced.js"></script>
   <script src="community-data.js"></script>
   <script src="community-ui.js"></script>
@@ -735,6 +770,8 @@
   <script src="map-layers.js"></script>
   <script src="map-vehicles.js"></script>
   <script src="map-extras.js"></script>
+  <script src="map-extras2.js"></script>
+  <script src="buildings-3d.js"></script>
   <script src="navigation.js"></script>
   <script src="search.js"></script>
   <script src="place-images.js"></script>
@@ -742,6 +779,7 @@
   <script src="routes-meetup.js"></script>
   <script src="ux-enhancements.js"></script>
   <script src="pwa.js"></script>
+  <script src="pull-refresh.js"></script>
   <script src="pogon-mascot.js"></script>
   <script src="app.js"></script>
   <script src="live.js"></script>

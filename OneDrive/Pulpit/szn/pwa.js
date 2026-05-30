@@ -86,7 +86,20 @@ if ('serviceWorker' in navigator) {
 }
 
 function showUpdateBanner() {
-  // Update banner disabled — silent update
+  if (typeof showToast === 'function') {
+    showToast('🔄 Nowa wersja dostępna — odśwież stronę');
+  }
+  // Create update banner
+  const banner = document.createElement('div');
+  banner.id = 'updateBanner';
+  banner.className = 'update-banner';
+  banner.innerHTML = `
+    <span>🔄 Dostępna nowa wersja aplikacji</span>
+    <button onclick="location.reload()">Odśwież</button>
+    <button onclick="this.parentElement.remove()">✕</button>
+  `;
+  document.body.appendChild(banner);
+  requestAnimationFrame(() => banner.classList.add('visible'));
 }
 
 // ===== ONLINE/OFFLINE STATUS =====

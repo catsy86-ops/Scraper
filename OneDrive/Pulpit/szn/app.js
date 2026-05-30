@@ -38,46 +38,79 @@ const CAT_BG = {
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
-  // Splash screen
+  // Restore theme from localStorage
+  const savedTheme = localStorage.getItem('lucznicza_theme');
+  if (savedTheme) {
+    state.isDark = savedTheme === 'dark';
+    document.documentElement.setAttribute('data-theme', state.isDark ? 'dark' : 'light');
+  }
+
+  // Splash screen — use requestAnimationFrame to avoid forced reflow
   setTimeout(() => {
-    document.getElementById('splash').style.opacity = '0';
-    document.getElementById('splash').style.transition = 'opacity 0.5s ease';
+    const splash = document.getElementById('splash');
+    const app = document.getElementById('app');
+    if (!splash || !app) return;
+
+    splash.style.opacity = '0';
+    splash.style.transition = 'opacity 0.5s ease';
     setTimeout(() => {
-      document.getElementById('splash').style.display = 'none';
-      document.getElementById('app').classList.remove('hidden');
-      document.getElementById('app').style.display = 'flex';
-      document.getElementById('app').style.flexDirection = 'column';
-      document.getElementById('app').style.height = '100vh';
-      initMap();
-      initUI();
-      renderPlaces();
-      renderRoutes();
-      renderInfo();
-      renderTransport();
-      renderEvents();
-      renderCommunity();
-      updateStatTotal();
-      handleDeepLink();
+      splash.style.display = 'none';
+      app.classList.remove('hidden');
+      // Use class instead of inline styles to avoid forced layout
+      app.classList.add('app-visible');
+      requestAnimationFrame(() => {
+        initMap();
+        initUI();
+        renderPlaces();
+        renderRoutes();
+        renderInfo();
+        renderTransport();
+        renderEvents();
+        renderCommunity();
+        updateStatTotal();
+        handleDeepLink();
+      });
     }, 500);
   }, 2200);
 });
 
 // ===== DEEP LINK (#miejsce-X opens that place) =====
 function handleDeepLink() {
-  // Hide Street View button if Google Maps is unavailable
-  if (window.GOOGLE_MAPS_FAILED) {
-    const sv = document.getElementById('btnStreetView');
-    if (sv) sv.style.display = 'none';
-  }
+  // Street View button now works with Mapillary fallback — no need to hide it
 
   const hash = window.location.hash;
-  const match = hash.match(/#miejsce-(\d+)/);
-  if (match) {
-    const id = parseInt(match[1]);
+  
+  // Handle section navigation via hash
+  const sectionMatch = hash.match(/^#(map|places|routes|info|transport|events|live|community)$/);
+  if (sectionMatch) {
+    navigateTo(sectionMatch[1]);
+    return;
+  }
+
+  // Handle place deep link
+  const placeMatch = hash.match(/#miejsce-(\d+)/);
+  if (placeMatch) {
+    const id = parseInt(placeMatch[1]);
     navigateTo('places');
     setTimeout(() => openPlaceModal(id), 400);
+    return;
+  }
+
+  // Handle route deep link
+  const routeMatch = hash.match(/#trasa-(\d+)/);
+  if (routeMatch) {
+    const id = parseInt(routeMatch[1]);
+    navigateTo('routes');
+    setTimeout(() => {
+      toggleRouteCard(id);
+      const card = document.getElementById(`rcard-${id}`);
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 400);
   }
 }
+
+// Listen for hash changes (back/forward navigation)
+window.addEventListener('hashchange', handleDeepLink);
 
 // ===== MAP INIT (Leaflet + OpenStreetMap) =====
 function initMap() {
@@ -348,12 +381,16 @@ function initMapControls() {
     });
   }
 
-  // Street View (Google Maps)
+  // Street View (Google Maps) — or Mapillary fallback
   const btnStreetView = document.getElementById('btnStreetView');
   if (btnStreetView) {
     btnStreetView.addEventListener('click', () => {
       if (window.GOOGLE_MAPS_FAILED) {
-        showToast('⚠️ Street View niedostępny (brak ważnego klucza Google Maps)');
+        // Fallback: open Mapillary street-level imagery for the area
+        const center = state.map ? state.map.getCenter() : { lat: 53.4530, lng: 14.5520 };
+        const mapillaryUrl = `https://www.mapillary.com/app/?lat=${center.lat}&lng=${center.lng}&z=17`;
+        window.open(mapillaryUrl, '_blank');
+        showToast('📸 Otwieranie Mapillary (alternatywa Street View)');
         return;
       }
       if (window.googleMapsAPI && window.googleMapsAPI.toggleStreetView && GOOGLE_MAPS && GOOGLE_MAPS.panorama) {
@@ -364,6 +401,21 @@ function initMapControls() {
       }
     });
   }
+
+  // Quick 3D Buildings button (in tools panel)
+  const btnQuick3D = document.getElementById('btnQuick3D');
+  if (btnQuick3D) {
+    btnQuick3D.addEventListener('click', () => {
+      if (window.Buildings3D) {
+        window.Buildings3D.toggle();
+        btnQuick3D.classList.toggle('active', window.Buildings3D.isEnabled());
+        const fab = document.getElementById('buildings3dFab');
+        if (fab) fab.classList.toggle('active', window.Buildings3D.isEnabled());
+      }
+    });
+  }
+
+  // FAB button is wired in buildings-3d.js directly (with L.DomEvent.disableClickPropagation)
 
   // Category filter buttons
   document.querySelectorAll('.cat-btn').forEach(btn => {
@@ -421,6 +473,15 @@ function initUI() {
     btnGeofences.addEventListener('click', () => {
       if (window.mapEnhancements) window.mapEnhancements.geofences();
       btnGeofences.classList.toggle('active');
+    });
+  }
+
+  // Buildings 3D
+  const btnBuildings3D = document.getElementById('btnBuildings3D');
+  if (btnBuildings3D) {
+    btnBuildings3D.addEventListener('click', () => {
+      if (window.Buildings3D) window.Buildings3D.toggle();
+      btnBuildings3D.classList.toggle('active');
     });
   }
 
@@ -516,7 +577,30 @@ function initUI() {
   document.getElementById('themeBtn').addEventListener('click', () => {
     state.isDark = !state.isDark;
     document.documentElement.setAttribute('data-theme', state.isDark ? 'dark' : 'light');
+    localStorage.setItem('lucznicza_theme', state.isDark ? 'dark' : 'light');
     showToast(state.isDark ? '🌙 Tryb ciemny' : '☀️ Tryb jasny');
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    // Don't trigger shortcuts when typing in inputs
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+    
+    // Number keys 1-7 for section navigation
+    if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+      const sections = ['map', 'places', 'routes', 'info', 'transport', 'events', 'live'];
+      const num = parseInt(e.key);
+      if (num >= 1 && num <= 7) {
+        navigateTo(sections[num - 1]);
+        return;
+      }
+      // 't' for theme toggle
+      if (e.key === 't' || e.key === 'T') {
+        state.isDark = !state.isDark;
+        document.documentElement.setAttribute('data-theme', state.isDark ? 'dark' : 'light');
+        showToast(state.isDark ? '🌙 Tryb ciemny' : '☀️ Tryb jasny');
+      }
+    }
   });
 
   // Modal close
@@ -601,6 +685,8 @@ function navigateTo(section) {
   if (target) {
     target.classList.remove('hidden');
     target.classList.add('active');
+    // Smooth scroll to top of section
+    target.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   document.querySelectorAll('.nav-item').forEach(i => {
@@ -613,6 +699,11 @@ function navigateTo(section) {
   // If map section, invalidate size so Leaflet redraws tiles
   if (section === 'map' && state.map) {
     setTimeout(() => state.map.invalidateSize(), 100);
+  }
+
+  // Update URL hash for deep linking (without triggering hashchange)
+  if (history.replaceState) {
+    history.replaceState(null, '', `#${section}`);
   }
 }
 
@@ -662,7 +753,35 @@ function renderPlaces(query = '') {
     });
   }
 
-  grid.innerHTML = places.map(p => renderPlaceCard(p)).join('');
+  // Lazy render — show first 12 immediately, load rest on scroll
+  const INITIAL_BATCH = 12;
+  const firstBatch = places.slice(0, INITIAL_BATCH);
+  const remaining = places.slice(INITIAL_BATCH);
+
+  grid.innerHTML = firstBatch.map(p => renderPlaceCard(p)).join('');
+
+  // Lazy load remaining cards when user scrolls near bottom
+  if (remaining.length > 0) {
+    const sentinel = document.createElement('div');
+    sentinel.className = 'lazy-sentinel';
+    sentinel.id = 'placesLazySentinel';
+    grid.appendChild(sentinel);
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        observer.disconnect();
+        sentinel.remove();
+        // Render remaining in chunks for smooth scrolling
+        const fragment = document.createDocumentFragment();
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = remaining.map(p => renderPlaceCard(p)).join('');
+        while (tempDiv.firstChild) {
+          grid.appendChild(tempDiv.firstChild);
+        }
+      }
+    }, { rootMargin: '200px' });
+    observer.observe(sentinel);
+  }
 
   // Update count
   const countEl = document.getElementById('placesCount');
@@ -1317,11 +1436,52 @@ function renderTransport() {
 function renderEvents() {
   const container = document.getElementById('eventsList');
   if (!container) return;
-  container.innerHTML = APP_DATA.events.map((e, i) => {
+
+  // Get unique months and tags for filtering
+  const months = [...new Set(APP_DATA.events.map(e => e.month))];
+  const tags = [...new Set(APP_DATA.events.map(e => e.tag))];
+
+  // Build filter UI
+  const section = document.getElementById('section-events');
+  const hero = section.querySelector('.section-hero');
+  
+  // Add filter tabs if not already present
+  if (!document.getElementById('eventsFilterTabs')) {
+    const filterDiv = document.createElement('div');
+    filterDiv.id = 'eventsFilterTabs';
+    filterDiv.className = 'events-filter-tabs';
+    filterDiv.innerHTML = `
+      <button class="eft-btn active" data-filter="all">📅 Wszystkie</button>
+      ${tags.map(t => `<button class="eft-btn" data-filter="${t}">${t}</button>`).join('')}
+    `;
+    hero.after(filterDiv);
+
+    filterDiv.querySelectorAll('.eft-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        filterDiv.querySelectorAll('.eft-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderEventCards(btn.dataset.filter);
+      });
+    });
+  }
+
+  renderEventCards('all');
+}
+
+function renderEventCards(filter = 'all') {
+  const container = document.getElementById('eventsList');
+  if (!container) return;
+
+  let events = APP_DATA.events;
+  if (filter !== 'all') {
+    events = events.filter(e => e.tag === filter);
+  }
+
+  container.innerHTML = events.map((e, i) => {
     const eventId = `${e.day}-${e.month}`;
     const hasReminder = window.isReminderSet ? window.isReminderSet(eventId) : false;
     return `
-    <div class="event-card">
+    <div class="event-card" style="animation-delay:${i * 0.05}s">
       <div class="event-date">
         <div class="event-day">${e.day}</div>
         <div class="event-month">${e.month}</div>
@@ -1341,6 +1501,13 @@ function renderEvents() {
       </div>
     </div>
   `}).join('');
+
+  if (events.length === 0) {
+    container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text2)">
+      <div style="font-size:48px;margin-bottom:12px">🎉</div>
+      <p>Brak wydarzeń w tej kategorii</p>
+    </div>`;
+  }
 }
 
 // ===== MODAL =====
@@ -1471,6 +1638,15 @@ function openPlaceModal(id) {
 
   document.getElementById('modalOverlay').classList.remove('hidden');
   document.getElementById('modalOverlay').style.display = 'flex';
+  
+  // Accessibility: trap focus in modal
+  state._lastFocusedElement = document.activeElement;
+  document.addEventListener('keydown', trapModalFocus);
+  // Focus the close button
+  setTimeout(() => {
+    const closeBtn = document.getElementById('modalClose');
+    if (closeBtn) closeBtn.focus();
+  }, 100);
 }
 
 // Sync favorite button between modal and re-render the grid
@@ -1549,13 +1725,24 @@ function initProximityAlerts() {
   const PE = window.placesEnhanced;
   if (!PE) return;
 
+  // Request notification permission (non-blocking)
+  if ('Notification' in window && Notification.permission === 'default') {
+    // Don't ask immediately — wait for user interaction
+    document.addEventListener('click', function requestNotifPermission() {
+      Notification.requestPermission();
+      document.removeEventListener('click', requestNotifPermission);
+    }, { once: true });
+  }
+
   const notified = new Set();
+  const PROXIMITY_THRESHOLD = 0.15; // 150m
+
   navigator.geolocation.watchPosition(
     pos => {
       PE.setUserLocation(pos.coords.latitude, pos.coords.longitude);
       APP_DATA.places.forEach(p => {
         const d = PE.distanceToPlace(p);
-        if (d != null && d < 0.1 && !notified.has(p.id)) { // within 100m
+        if (d != null && d < PROXIMITY_THRESHOLD && !notified.has(p.id)) {
           notified.add(p.id);
           notifyNearby(p, Math.round(d * 1000));
         }
@@ -1580,6 +1767,35 @@ function notifyNearby(place, meters) {
 function closeModal() {
   document.getElementById('modalOverlay').classList.add('hidden');
   document.getElementById('modalOverlay').style.display = 'none';
+  // Restore focus to the element that opened the modal
+  if (state._lastFocusedElement) {
+    state._lastFocusedElement.focus();
+    state._lastFocusedElement = null;
+  }
+  // Remove keyboard trap
+  document.removeEventListener('keydown', trapModalFocus);
+}
+
+// Focus trap for modal (accessibility)
+function trapModalFocus(e) {
+  if (e.key === 'Escape') { closeModal(); return; }
+  if (e.key !== 'Tab') return;
+  
+  const modal = document.getElementById('placeModal');
+  if (!modal) return;
+  const focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  if (!focusable.length) return;
+  
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
 }
 
 function openGoogleMaps(lat, lng) {
@@ -1587,18 +1803,18 @@ function openGoogleMaps(lat, lng) {
 }
 
 // ===== TOAST =====
-function showToast(msg) {
+function showToast(msg, type = 'info') {
   const toast = document.getElementById('toast');
   if (!toast) return;
   toast.textContent = msg;
-  toast.classList.remove('hidden');
+  toast.className = `toast toast-${type}`;
   toast.style.display = 'block';
   toast.style.opacity = '1';
   clearTimeout(toast._timeout);
   toast._timeout = setTimeout(() => {
     toast.style.opacity = '0';
     setTimeout(() => {
-      toast.classList.add('hidden');
+      toast.className = 'toast hidden';
       toast.style.display = 'none';
     }, 300);
   }, 3000);

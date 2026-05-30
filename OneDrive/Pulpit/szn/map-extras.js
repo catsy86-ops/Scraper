@@ -15,8 +15,8 @@ function buildLineFilterChips() {
   const mapEl = document.getElementById('map');
   if (!mapEl || document.getElementById('lineFilterChips')) return;
 
-  // Linie kursujące przez Niebuszewo (z danych ZDiTM)
-  const lines = ['89', '69', '75', '76', '77', 'A', 'B', 'C'];
+  // Linie kursujące przez Niebuszewo/Łuczniczą (prawdziwe z ZDiTM)
+  const lines = ['89', '69', '53', '67', '75', '79'];
 
   const bar = document.createElement('div');
   bar.id = 'lineFilterChips';

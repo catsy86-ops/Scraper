@@ -1,8 +1,8 @@
 /* ===== LIVE DATA MODULE — Szczecin Guide =====
  * APIs używane (wszystkie bezpłatne, bez klucza):
  *  - Open-Meteo (pogoda + prognoza + jakość powietrza + wschód/zachód słońca)
- *  - Nominatim (geocoding)
- *  - Symulacja ZDiTM (rozkład jazdy — brak publicznego GTFS-RT API)
+ *  - ZDiTM Szczecin (odjazdy + pozycje GPS pojazdów — real-time, CORS *)
+ *  - IMGW (meteorologia + hydrologia Odry)
  * ============================================= */
 'use strict';
 
@@ -45,6 +45,7 @@ const live = {
   aqi: null,
   forecast: null,
   sun: null,
+  nextDepartures: null,
   lastWeatherFetch: 0,
   lastAqiFetch: 0,
   tickerItems: [],
@@ -67,15 +68,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initLive() {
   startClock();
-  fetchWeather();
-  fetchAqi();
+  
+  // Batch initial API calls (parallel fetch for better performance)
+  Promise.allSettled([
+    fetchWeather(),
+    fetchAqi()
+  ]).then(() => {
+    buildTicker();
+  });
+  
   generateTransportDepartures();
-  buildTicker();
 
-  // Auto-refresh intervals
+  // Auto-refresh intervals (staggered to avoid network spikes)
   live.weatherInterval = setInterval(fetchWeather, 10 * 60 * 1000);   // 10 min
   live.aqiInterval     = setInterval(fetchAqi, 15 * 60 * 1000);       // 15 min
   live.transportInterval = setInterval(generateTransportDepartures, 60 * 1000); // 1 min
+
+  // Update refresh countdown every second
+  live.countdownInterval = setInterval(updateRefreshCountdown, 1000);
 
   // Live transport panel
   document.getElementById('liveTransportBtn').addEventListener('click', () => {
@@ -141,6 +151,11 @@ async function fetchWeather() {
     live.forecast = data.daily;
     live.sun = { sunrise: data.daily.sunrise[0], sunset: data.daily.sunset[0] };
 
+    // Save to IndexedDB for offline use
+    if (window.OfflineStore) {
+      OfflineStore.set('weather', data, 60 * 60 * 1000); // 1h TTL
+    }
+
     renderWeatherWidget(data.current);
     renderWeatherFull(data.current);
     renderForecast(data.daily);
@@ -149,6 +164,21 @@ async function fetchWeather() {
 
   } catch (err) {
     console.warn('Weather fetch failed:', err);
+    // Try IndexedDB fallback
+    if (window.OfflineStore) {
+      const cached = await OfflineStore.getStale('weather');
+      if (cached) {
+        live.weather = cached.current;
+        live.forecast = cached.daily;
+        live.sun = { sunrise: cached.daily.sunrise[0], sunset: cached.daily.sunset[0] };
+        renderWeatherWidget(cached.current);
+        renderWeatherFull(cached.current);
+        renderForecast(cached.daily);
+        renderSunTimes(cached.daily.sunrise[0], cached.daily.sunset[0]);
+        showToast('📵 Pogoda z cache (offline)');
+        return;
+      }
+    }
     renderWeatherError();
   }
 }
@@ -311,12 +341,28 @@ async function fetchAqi() {
     const data = await res.json();
     live.aqi = data.current;
 
+    // Save to IndexedDB for offline use
+    if (window.OfflineStore) {
+      OfflineStore.set('aqi', data, 60 * 60 * 1000); // 1h TTL
+    }
+
     renderAqiWidget(data.current);
     renderAqiFull(data.current);
     updateTicker();
 
   } catch (err) {
     console.warn('AQI fetch failed:', err);
+    // Try IndexedDB fallback
+    if (window.OfflineStore) {
+      const cached = await OfflineStore.getStale('aqi');
+      if (cached && cached.current) {
+        live.aqi = cached.current;
+        renderAqiWidget(cached.current);
+        renderAqiFull(cached.current);
+        showToast('📵 Jakość powietrza z cache (offline)');
+        return;
+      }
+    }
     renderAqiError();
   }
 }
@@ -392,108 +438,85 @@ function renderAqiError() {
   if (el) el.innerHTML = `<div style="padding:16px;text-align:center;color:var(--text2)">⚠️ Nie można pobrać danych o jakości powietrza</div>`;
 }
 
-// ===== TRANSPORT DEPARTURES (ZDiTM Szczecin — real-time via Vercel proxy) =====
-// Fetches real odjazdy from ZDiTM API via /api/zditm-departures serverless function
-// Falls back to simulated data if API is unavailable
+// ===== TRANSPORT DEPARTURES (ZDiTM Szczecin — real-time, bezpośrednio z API) =====
+// ZDiTM API wysyła CORS `*`, więc wołamy je wprost z przeglądarki przez window.ZDiTM.
+// Fallback na dane szacunkowe (prawdziwe linie 89/69) tylko gdy API nie odpowiada.
 
 const LINE_COLORS = {
-  '3': '#e74c3c', '7': '#c0392b', '12': '#e74c3c',
-  '51': '#2980b9', '64': '#3498db', '78': '#2980b9', '103': '#1abc9c',
-  'N1': '#2c3e50'
+  // Autobusy kursujące przez Łuczniczą (prawdziwe linie ZDiTM)
+  '69': '#2980b9', '89': '#2980b9',
+  '53': '#3498db', '67': '#3498db', '75': '#3498db', '79': '#3498db',
+  // Tramwaje (linie 1-12) — czerwone
+  '1': '#e74c3c', '2': '#e74c3c', '3': '#e74c3c', '7': '#e74c3c', '12': '#e74c3c',
+  // Nocne
+  'N1': '#2c3e50', 'N2': '#2c3e50',
 };
 
 const STOPS = [
   'Łucznicza',
-  'Tarczowa',
-  'Osiedle Łucznicza',
 ];
 
 async function generateTransportDepartures() {
-  // On localhost the Vercel serverless function isn't running — skip the API
-  // call to avoid a 404 and go straight to realistic simulated data.
-  const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
-  if (isLocal) {
-    const departures = generateSimulatedTransportDepartures();
-    renderTransportPanel(departures);
-    renderTransportFull(departures, false);
-    return;
-  }
-
-  try {
-    // Try to fetch real data from our Vercel proxy API
-    const response = await fetch('/api/zditm-departures?stops=Łucznicza,Tarczowa', {
-      method: 'GET',
-      timeout: 8000,
-    });
-    
-    if (!response.ok) throw new Error('API fetch failed');
-    
-    const data = await response.json();
-    const departures = (data.departures || []).map(d => {
-      // Build a clock time (HH:MM) from minsLeft for display
-      let clock = '--:--';
-      if (typeof d.minsLeft === 'number') {
-        const t = new Date(Date.now() + d.minsLeft * 60000);
-        clock = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
-      } else if (d.time) {
-        clock = new Date(d.time).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+  // ZDiTM API wysyła CORS `*` — wołamy bezpośrednio z przeglądarki (działa też lokalnie).
+  if (window.ZDiTM) {
+    try {
+      const departures = await ZDiTM.getDepartures();
+      if (departures && departures.length) {
+        live.nextDepartures = departures;
+        renderTransportPanel(departures);
+        renderTransportFull(departures, true);
+        updateTicker();
+        return;
       }
-      return {
-        ...d,
-        minsLeft: typeof d.minsLeft === 'number' ? d.minsLeft : 0,
-        color: LINE_COLORS[d.line] || '#95a5a6',
-        time: clock,
-      };
-    });
-
-    // If we got real data, mark it
-    if (data.source === 'zditm-real') {
-      console.log('✓ ZDiTM real-time data loaded', departures.length, 'departures');
-    } else {
-      console.log('⚠ Using simulated transport data (API unavailable)');
+      throw new Error('Brak odjazdów z API');
+    } catch (err) {
+      console.warn('ZDiTM departures failed, trying cache/fallback:', err.message);
+      // Spróbuj danych z cache (offline)
+      if (window.OfflineStore) {
+        const cached = await OfflineStore.getStale('zditm_departures');
+        if (cached && cached.length) {
+          live.nextDepartures = cached;
+          renderTransportPanel(cached);
+          renderTransportFull(cached, true);
+          showToast('📵 Odjazdy z cache (offline)');
+          return;
+        }
+      }
     }
-
-    renderTransportPanel(departures);
-    renderTransportFull(departures, data.source === 'zditm-real');
-
-  } catch (err) {
-    console.warn('Transport fetch error:', err.message);
-    // Fallback to simulated
-    const departures = generateSimulatedTransportDepartures();
-    renderTransportPanel(departures);
-    renderTransportFull(departures, false);
   }
+
+  // Ostatnia deska ratunku — symulacja oparta na PRAWDZIWYCH liniach (89, 69)
+  const departures = generateSimulatedTransportDepartures();
+  live.nextDepartures = departures;
+  renderTransportPanel(departures);
+  renderTransportFull(departures, false);
 }
 
 function generateSimulatedTransportDepartures() {
+  // PRAWDZIWE linie kursujące przez Łuczniczą (potwierdzone w API ZDiTM):
+  //   89 → Kołłątaja, 69 → Kołłątaja (autobusy)
   const LINES = [
-    { num: '3',   type: 'tram', dest: 'Centrum' },
-    { num: '7',   type: 'tram', dest: 'Dworzec Główny' },
-    { num: '12',  type: 'tram', dest: 'Plac Rodła' },
-    { num: '51',  type: 'bus',  dest: 'Centrum' },
-    { num: '64',  type: 'bus',  dest: 'Dworzec Niebuszewo' },
-    { num: '78',  type: 'bus',  dest: 'Centrum' },
-    { num: '103', type: 'bus',  dest: 'Osiedle Zawadzkiego' },
+    { num: '89', type: 'bus', dest: 'Kołłątaja' },
+    { num: '69', type: 'bus', dest: 'Kołłątaja' },
   ];
 
   const departures = [];
-  
-  LINES.forEach(line => {
-    const count = 2 + Math.floor(Math.random() * 2);
-    let baseMin = 1 + Math.floor(Math.random() * 8);
 
-    for (let i = 0; i < count; i++) {
+  LINES.forEach(line => {
+    let baseMin = 1 + Math.floor(Math.random() * 6);
+    for (let i = 0; i < 4; i++) {
       const depTime = new Date(Date.now() + baseMin * 60000);
       departures.push({
         line: line.num,
         type: line.type,
-        color: LINE_COLORS[line.num] || '#95a5a6',
+        color: LINE_COLORS[line.num] || '#2980b9',
         dest: line.dest,
-        stop: STOPS[Math.floor(Math.random() * STOPS.length)],
+        stop: 'Łucznicza',
         minsLeft: baseMin,
+        realtime: false,
         time: `${String(depTime.getHours()).padStart(2,'0')}:${String(depTime.getMinutes()).padStart(2,'0')}`,
       });
-      baseMin += 3 + Math.floor(Math.random() * 10);
+      baseMin += 10; // co ~10 min
     }
   });
 
@@ -505,12 +528,17 @@ function renderTransportPanel(deps) {
   const body = document.getElementById('ltpBody');
   if (!body) return;
 
+  if (!deps.length) {
+    body.innerHTML = `<div class="ltp-loading">Brak odjazdów w tej chwili</div>`;
+    return;
+  }
+
   body.innerHTML = deps.slice(0, 12).map(d => `
     <div class="departure-row">
       <div class="dep-line" style="background:${d.color}">${d.line}</div>
       <div class="dep-info">
         <div class="dep-dest">${d.dest}</div>
-        <div class="dep-stop">🚏 ${d.stop}</div>
+        <div class="dep-stop">🚏 ${d.stop}${d.realtime ? ' <span class="dep-rt" title="Pozycja z GPS pojazdu">📡</span>' : ''}</div>
       </div>
       <div class="dep-time ${d.minsLeft <= 2 ? 'soon' : ''}">
         ${d.minsLeft <= 0 ? 'Teraz' : d.minsLeft <= 1 ? '1 min' : `${d.minsLeft} min`}
@@ -529,12 +557,18 @@ function renderTransportFull(deps, isRealtime = false) {
   if (!el) return;
 
   const now = new Date();
-  const dataLabel = isRealtime ? '🟢 Dane ZDiTM (live)' : '🟡 Dane symulowane';
-  
+  const dataLabel = isRealtime ? '🟢 Dane ZDiTM (na żywo)' : '🟡 Dane szacunkowe';
+  const rtCount = deps.filter(d => d.realtime).length;
+
+  if (!deps.length) {
+    el.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text2)">🚌 Brak odjazdów w tej chwili</div>`;
+    return;
+  }
+
   el.innerHTML = `
     <div style="padding:10px 16px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">
-      Odjazdy z przystanków: <strong>Łucznicza, Tarczowa, Osiedle Łucznicza</strong>
-      · ${dataLabel}
+      Odjazdy z przystanku: <strong>Łucznicza</strong>
+      · ${dataLabel}${rtCount ? ` · 📡 ${rtCount} z GPS` : ''}
       · Stan na: <strong>${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}</strong>
     </div>
     ${deps.slice(0, 15).map(d => `
@@ -542,7 +576,7 @@ function renderTransportFull(deps, isRealtime = false) {
         <div class="dep-line" style="background:${d.color}">${d.line}</div>
         <div class="dep-info">
           <div class="dep-dest">${d.dest}</div>
-          <div class="dep-stop">🚏 ${d.stop}</div>
+          <div class="dep-stop">🚏 ${d.stop}${d.realtime ? ' <span class="dep-rt" title="Czas z GPS pojazdu">📡 GPS</span>' : ' <span class="dep-sched" title="Rozkładowy">🕐 rozkład</span>'}</div>
         </div>
         <div class="dep-time ${d.minsLeft <= 2 ? 'soon' : ''}">
           ${d.minsLeft <= 0 ? '🚌 Teraz' : d.minsLeft <= 1 ? '~1 min' : `${d.minsLeft} min`}
@@ -551,7 +585,7 @@ function renderTransportFull(deps, isRealtime = false) {
       </div>
     `).join('')}
     <div style="padding:10px 16px;font-size:11px;color:var(--text3);text-align:center;border-top:1px solid var(--border)">
-      ${isRealtime ? '✓ Dane pobrane z API ZDiTM Szczecin' : 'ℹ️ Dane symulowane — ZDiTM API niedostępne z przeglądarki'}
+      ${isRealtime ? '✓ Dane pobrane na żywo z API ZDiTM Szczecin' : 'ℹ️ Dane szacunkowe — API ZDiTM chwilowo niedostępne'}
     </div>
   `;
 }
@@ -593,9 +627,18 @@ function updateTicker() {
   }
 
   // Static local items
-  items.push(`📍 <strong>Łucznicza & Tarczowa, Szczecin</strong> · Przewodnik interaktywny`);
+  items.push(`📍 <strong>Łucznicza, Szczecin</strong> · Przewodnik interaktywny`);
   items.push(`🏹 <strong>Dziś w dzielnicy:</strong> Boisko otwarte · Plac zabaw czynny · Sklepy otwarte`);
-  items.push(`🚌 <strong>Transport:</strong> Tramwaje 3, 7, 12 · Autobusy 51, 64, 78, 103`);
+
+  // Najbliższe odjazdy na żywo (jeśli dostępne)
+  if (live.nextDepartures && live.nextDepartures.length) {
+    const next = live.nextDepartures.slice(0, 3)
+      .map(d => `${d.line}→${d.dest} ${d.minsLeft <= 0 ? 'teraz' : d.minsLeft + ' min'}`)
+      .join(' · ');
+    items.push(`🚌 <strong>Najbliższe odjazdy (Łucznicza):</strong> ${next}`);
+  } else {
+    items.push(`🚌 <strong>Transport:</strong> Autobusy 69, 89 · przystanek Łucznicza`);
+  }
   items.push(`⏰ <strong>Aktualny czas:</strong> ${timeStr} · Strefa: Europa/Warszawa`);
 
   // IMGW — Odra water level
@@ -629,23 +672,28 @@ function getWindDir(deg) {
   return dirs[Math.round(deg / 45) % 8];
 }
 
-// ===== LIVE SECTION NAVIGATION HOOK =====
-// Trigger data refresh when user opens the Live section
-const _origNavigateTo = window.navigateTo;
-if (typeof navigateTo === 'function') {
-  const origNav = navigateTo;
-  window.navigateTo = function(section) {
-    origNav(section);
-    if (section === 'live') {
-      // Refresh all live data when section is opened
-      if (!live.weather) fetchWeather();
-      if (!live.aqi) fetchAqi();
-      generateTransportDepartures();
-    }
-  };
+// Refresh countdown — shows time until next data refresh
+function updateRefreshCountdown() {
+  const now = Date.now();
+  const weatherNext = live.lastWeatherFetch + 10 * 60 * 1000;
+  const aqiNext = live.lastAqiFetch + 15 * 60 * 1000;
+  
+  const weatherSecs = Math.max(0, Math.round((weatherNext - now) / 1000));
+  const aqiSecs = Math.max(0, Math.round((aqiNext - now) / 1000));
+  
+  // Update weather card countdown if visible
+  const weatherTag = document.querySelector('#liveWeatherCard .live-tag');
+  if (weatherTag && weatherSecs > 0) {
+    const m = Math.floor(weatherSecs / 60);
+    const s = weatherSecs % 60;
+    weatherTag.innerHTML = `<span class="live-dot"></span> Odświeżenie za ${m}:${String(s).padStart(2,'0')}`;
+  }
 }
 
-// Also hook into the nav items directly
+// ===== LIVE SECTION NAVIGATION HOOK =====
+// Trigger data refresh when user opens the Live section.
+// NOTE: navigateTo is already wrapped by ux-enhancements.js — don't redeclare.
+// Instead, use a click listener on nav items targeting "live".
 document.addEventListener('click', e => {
   const navItem = e.target.closest('[data-section="live"]');
   if (navItem) {
@@ -663,28 +711,78 @@ document.addEventListener('click', e => {
 // ============================================================
 
 // ===== 1. IMGW — Dane meteorologiczne + hydrologiczne =====
+// IMGW API wysyła CORS `*` — wołamy bezpośrednio (działa też na localhost).
+// Stacja synop: Szczecin (12205), hydro: Odra-Szczecin (id 153140050).
 async function fetchImgw() {
-  const isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
-  const url = isLocal
-    ? null  // skip on localhost
-    : '/api/imgw-szczecin';
-
-  if (!url) {
-    renderImgwWidget(null);
-    return;
-  }
-
   try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('IMGW API error');
-    const data = await res.json();
+    let data;
+    // Najpierw spróbuj proxy (jeśli na Vercel — szybsze, cache), potem direct
+    try {
+      const res = await fetch('/api/imgw-szczecin');
+      if (res.ok) {
+        const j = await res.json();
+        if (j && j.synop) data = j;
+      }
+    } catch (_) { /* brak proxy (localhost) — lecimy direct */ }
+
+    if (!data) {
+      data = await fetchImgwDirect();
+    }
+
     live.imgw = data;
     renderImgwWidget(data);
     updateTicker();
+    if (data && window.OfflineStore) OfflineStore.set('imgw', data, 60 * 60 * 1000);
   } catch (err) {
     console.warn('IMGW fetch failed:', err.message);
+    // Cache offline
+    if (window.OfflineStore) {
+      const cached = await OfflineStore.getStale('imgw');
+      if (cached) { live.imgw = cached; renderImgwWidget(cached); return; }
+    }
     renderImgwWidget(null);
   }
+}
+
+// Bezpośrednie pobranie z IMGW + złożenie danych synop + hydro
+async function fetchImgwDirect() {
+  const [synopRes, hydroRes] = await Promise.allSettled([
+    fetch('https://danepubliczne.imgw.pl/api/data/synop/station/szczecin'),
+    fetch('https://danepubliczne.imgw.pl/api/data/hydro/station/szczecin')
+  ]);
+
+  let synop = null, hydro = null;
+
+  if (synopRes.status === 'fulfilled' && synopRes.value.ok) {
+    const s = await synopRes.value.json();
+    synop = {
+      temp: parseFloat(s.temperatura),
+      windSpeed: parseFloat(s.predkosc_wiatru),
+      windDir: parseInt(s.kierunek_wiatru),
+      humidity: parseFloat(s.wilgotnosc_wzgledna),
+      pressure: parseFloat(s.cisnienie),
+      precipitation: parseFloat(s.suma_opadu) || 0,
+      measuredAt: `${s.data_pomiaru} ${s.godzina_pomiaru}:00`
+    };
+  }
+
+  if (hydroRes.status === 'fulfilled' && hydroRes.value.ok) {
+    const arr = await hydroRes.value.json();
+    const h = Array.isArray(arr)
+      ? (arr.find(x => x.id_stacji === '153140050') || arr.find(x => x.stacja === 'Szczecin'))
+      : null;
+    if (h) {
+      hydro = {
+        river: h.rzeka,
+        station: h.stacja,
+        waterLevel: parseInt(h.stan_wody),
+        waterTemp: h.temperatura_wody ? parseFloat(h.temperatura_wody) : null,
+        measuredAt: h.stan_wody_data_pomiaru
+      };
+    }
+  }
+
+  return { source: 'imgw-direct', synop, hydro };
 }
 
 function renderImgwWidget(data) {
@@ -802,16 +900,12 @@ function renderGiosWidget(data) {
   const el = document.getElementById('liveGiosCard');
   if (!el) return;
 
-  if (!data || data.source === 'error' || !data.category) {
-    el.innerHTML = `
-      <div class="live-card-header">
-        <span class="live-card-icon">🏭</span>
-        <div><h3>GIOŚ — Jakość powietrza</h3>
-        <span class="live-tag">Oficjalne dane polskie</span></div>
-      </div>
-      <div style="padding:16px;color:var(--text2);font-size:13px">⚠️ Dane GIOŚ niedostępne</div>`;
+  if (!data || data.source === 'error' || !data.category || data.category === 'Brak danych') {
+    // Ukryj kartę GIOŚ gdy brak danych — Open-Meteo AQI jest głównym źródłem
+    el.style.display = 'none';
     return;
   }
+  el.style.display = '';
 
   const pollutantLabels = { PM10: 'PM10', 'PM2.5': 'PM2.5', NO2: 'NO₂', SO2: 'SO₂', O3: 'O₃' };
   const measurementsHtml = Object.entries(data.measurements || {}).map(([k, v]) => `

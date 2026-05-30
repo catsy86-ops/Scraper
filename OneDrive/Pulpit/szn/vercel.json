@@ -3,6 +3,18 @@
   "trailingSlash": false,
   "functions": {
     "api/zditm-departures.js": {
+      "maxDuration": 15
+    },
+    "api/buildings.js": {
+      "maxDuration": 25
+    },
+    "api/imgw-szczecin.js": {
+      "maxDuration": 10
+    },
+    "api/gios-szczecin.js": {
+      "maxDuration": 10
+    },
+    "api/zditm-vehicles.js": {
       "maxDuration": 10
     }
   },

@@ -1,0 +1,9 @@
+{
+  "name": "szczecin-lucznicza-guide",
+  "version": "1.0.0",
+  "description": "Interaktywny przewodnik po Łuczniczej i Tarczowej w Szczecinie",
+  "scripts": {
+    "dev": "npx serve . -p 3000",
+    "start": "npx serve . -p 3000"
+  }
+}
