@@ -221,6 +221,11 @@ function renderWeatherFull(c) {
       </div>
     </div>
   `;
+
+  // Update activity forecast whenever weather data arrives
+  if (typeof renderActivityForecast === 'function') {
+    setTimeout(renderActivityForecast, 50);
+  }
 }
 
 function renderWeatherError() {
@@ -1036,9 +1041,6 @@ function renderActivityForecast() {
   `;
 }
 
-// Hook into weather fetch
-const _origRenderWeatherFull = renderWeatherFull;
-function renderWeatherFull(c) {
-  _origRenderWeatherFull(c);
-  setTimeout(renderActivityForecast, 100);
-}
+// Hook into weather fetch — call activity forecast after weather renders
+// NOTE: do NOT redefine renderWeatherFull here (function hoisting causes infinite recursion)
+// The activity forecast is called from within the original renderWeatherFull below.

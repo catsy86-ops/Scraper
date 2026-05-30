@@ -62,6 +62,8 @@
           msg.includes('loading=async') ||
           msg.includes('czujnika orientacji') ||
           msg.includes('orientation sensor') ||
+          msg.includes('mozPressure') ||
+          msg.includes('mozInputSource') ||
           msg.includes('Układ został wymuszony')) {
         return; // suppress these noisy warnings
       }
@@ -747,7 +749,6 @@
   <script src="pogon-mascot.js"></script>
   <script src="app.js"></script>
   <script src="live.js"></script>
-  <script src="google-maps.js"></script>/script>
   <script src="google-maps.js"></script>
 </body>
 </html>
