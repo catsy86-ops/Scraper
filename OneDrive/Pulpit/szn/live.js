@@ -937,3 +937,108 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // NOTE: ticker extension is handled inside the original updateTicker() below.
 // Do NOT redefine updateTicker here — it causes infinite recursion via hoisting.
+
+
+// ============================================================
+// ===== PROGNOZA DLA AKTYWNOŚCI ==============================
+// ============================================================
+
+function renderActivityForecast() {
+  const el = document.getElementById('liveActivityForecast');
+  if (!el) return;
+
+  const weather = live.weather;
+  if (!weather) {
+    el.innerHTML = '<div class="live-skeleton"></div>';
+    return;
+  }
+
+  const temp = Math.round(weather.temperature_2m);
+  const wind = Math.round(weather.wind_speed_10m);
+  const rain = weather.precipitation || 0;
+  const uv   = weather.uv_index || 0;
+  const code = weather.weather_code || 0;
+
+  // Score activities based on weather
+  const activities = [
+    {
+      name: 'Jogging / Bieganie',
+      emoji: '🏃',
+      ideal: temp >= 8 && temp <= 22 && wind < 30 && rain < 1,
+      good:  temp >= 5 && temp <= 26 && wind < 40 && rain < 3,
+      tip: temp > 26 ? 'Zbyt gorąco — biegnij rano lub wieczorem' :
+           temp < 5  ? 'Ubierz się ciepło' :
+           rain > 1  ? 'Mokra nawierzchnia — uważaj' :
+           wind > 30 ? 'Silny wiatr — trudniejszy bieg' : 'Idealne warunki!'
+    },
+    {
+      name: 'Spacer w parku',
+      emoji: '🚶',
+      ideal: temp >= 5 && rain < 5 && code < 80,
+      good:  temp >= 0 && rain < 10,
+      tip: rain > 5 ? 'Weź parasol' : temp < 0 ? 'Ubierz się ciepło' : 'Miły spacer!'
+    },
+    {
+      name: 'Rower',
+      emoji: '🚴',
+      ideal: temp >= 10 && temp <= 28 && wind < 25 && rain < 1,
+      good:  temp >= 5 && wind < 35 && rain < 3,
+      tip: wind > 25 ? 'Silny wiatr — trudniejsza jazda' :
+           rain > 1  ? 'Mokra droga — jedź ostrożnie' : 'Dobry dzień na rower!'
+    },
+    {
+      name: 'Siłownia plenerowa',
+      emoji: '💪',
+      ideal: temp >= 8 && temp <= 30 && rain < 1,
+      good:  temp >= 3 && rain < 5,
+      tip: rain > 1 ? 'Mokry sprzęt — uważaj' : temp < 3 ? 'Bardzo zimno' : 'Ćwicz na świeżym powietrzu!'
+    },
+    {
+      name: 'Piknik w parku',
+      emoji: '🧺',
+      ideal: temp >= 18 && temp <= 28 && rain < 0.5 && wind < 20 && code < 3,
+      good:  temp >= 15 && rain < 2 && code < 60,
+      tip: rain > 0.5 ? 'Możliwy deszcz — weź koc' :
+           temp < 15  ? 'Trochę chłodno na piknik' : 'Idealny dzień na piknik!'
+    },
+    {
+      name: 'Basen / Kąpiel',
+      emoji: '🏊',
+      ideal: temp >= 25 && uv >= 3 && rain < 1,
+      good:  temp >= 22 && rain < 3,
+      tip: temp < 22 ? 'Za chłodno na kąpiel' : 'Dobry dzień na basen!'
+    }
+  ];
+
+  const getScore = a => a.ideal ? 3 : a.good ? 2 : 1;
+  const getLabel = a => a.ideal ? '✅ Idealne' : a.good ? '🟡 Dobre' : '❌ Niezalecane';
+  const getColor = a => a.ideal ? '#43e97b' : a.good ? '#ffd93d' : '#ff6584';
+
+  activities.sort((a, b) => getScore(b) - getScore(a));
+
+  el.innerHTML = `
+    <div class="af-header">
+      <div class="af-temp">${temp}°C</div>
+      <div class="af-desc">Prognoza aktywności na dziś</div>
+    </div>
+    <div class="af-grid">
+      ${activities.map(a => `
+        <div class="af-item">
+          <div class="af-emoji">${a.emoji}</div>
+          <div class="af-body">
+            <div class="af-name">${a.name}</div>
+            <div class="af-tip">${a.tip}</div>
+          </div>
+          <div class="af-badge" style="background:${getColor(a)}22;color:${getColor(a)}">${getLabel(a)}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// Hook into weather fetch
+const _origRenderWeatherFull = renderWeatherFull;
+function renderWeatherFull(c) {
+  _origRenderWeatherFull(c);
+  setTimeout(renderActivityForecast, 100);
+}

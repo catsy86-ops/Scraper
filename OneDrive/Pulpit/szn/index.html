@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#1a1a2e" />
-  <meta name="description" content="Interaktywny przewodnik po ulicy Łuczniczej i Tarczowej w Szczecinie z mapą 3D" />
-  <title>Przewodnik — Łucznicza & Tarczowa, Szczecin</title>
+  <meta name="description" content="Interaktywny przewodnik po dzielnicy Niebuszewo/Łucznicza w Szczecinie — mapa, miejsca, trasy, transport na żywo" />
+  <title>Niebuszewo Guide — Szczecin</title>
   <link rel="manifest" href="manifest.json" />
   <!-- Inline emoji favicon (prevents favicon.ico 404) -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏹</text></svg>" />
@@ -77,7 +77,7 @@
   <div id="splash">
     <div class="splash-content">
       <div class="splash-icon">🏹</div>
-      <h1 class="splash-title">Łucznicza & Tarczowa</h1>
+      <h1 class="splash-title">Niebuszewo Guide</h1>
       <p class="splash-sub">Szczecin · Przewodnik Interaktywny</p>
       <div class="splash-loader">
         <div class="loader-bar"></div>
@@ -97,7 +97,7 @@
         <div class="header-title">
           <span class="header-icon">🏹</span>
           <div>
-            <h1>Łucznicza & Tarczowa</h1>
+            <h1>Niebuszewo Guide</h1>
             <p>Szczecin</p>
           </div>
         </div>
@@ -489,6 +489,20 @@
             <div class="live-skeleton"></div>
           </div>
 
+          <!-- Prognoza dla aktywności -->
+          <div class="live-card">
+            <div class="live-card-header">
+              <span class="live-card-icon">🏃</span>
+              <div>
+                <h3>Prognoza dla aktywności</h3>
+                <span class="live-tag"><span class="live-dot"></span> Na podstawie pogody</span>
+              </div>
+            </div>
+            <div id="liveActivityForecast">
+              <div class="live-skeleton"></div>
+            </div>
+          </div>
+
         </div>
       </section>
 
@@ -725,9 +739,15 @@
   <script src="map-improvements.js"></script>
   <script src="map-pro.js"></script>
   <script src="map-layers.js"></script>
+  <script src="navigation.js"></script>
+  <script src="search.js"></script>
+  <script src="place-images.js"></script>
+  <script src="user-profile.js"></script>
+  <script src="pwa.js"></script>
   <script src="pogon-mascot.js"></script>
   <script src="app.js"></script>
   <script src="live.js"></script>
+  <script src="google-maps.js"></script>/script>
   <script src="google-maps.js"></script>
 </body>
 </html>

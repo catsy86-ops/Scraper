@@ -711,7 +711,8 @@ function renderPlaceCard(p) {
         ${fav ? '❤️' : '🤍'}
       </button>
       <div class="place-card-header" style="background:${p.gradient || CAT_BG[p.cat]}">
-        <span style="font-size:52px">${p.emoji}</span>
+        ${p.image ? `<img src="${p.image}" class="place-card-img" alt="${p.name}" loading="lazy" onerror="this.style.display='none'">` : ''}
+        <span style="font-size:52px;position:relative;z-index:1">${p.emoji}</span>
         <span class="place-card-badge badge-${p.cat}">${p.cat}</span>
         ${status ? `<span class="status-badge ${status.open ? 'is-open' : 'is-closed'}">${status.open ? '🟢' : '🔴'} ${status.label}</span>` : ''}
       </div>
@@ -1425,7 +1426,7 @@ function openPlaceModal(id) {
       <button class="modal-action-btn btn-primary" onclick="flyToPlace(${place.id});closeModal()">
         🗺️ Pokaż na mapie
       </button>
-      <button class="modal-action-btn btn-secondary" onclick="openGoogleMaps(${place.coords[1]},${place.coords[0]})">
+      <button class="modal-action-btn btn-secondary" onclick="startNavigation(${place.coords[1]},${place.coords[0]},'${place.name.replace(/'/g,"\\'")}');closeModal()">
         🧭 Nawiguj
       </button>
     </div>
