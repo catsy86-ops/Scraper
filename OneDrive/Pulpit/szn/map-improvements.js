@@ -76,18 +76,19 @@ function initZoomIndicator() {
   indicator.id = 'zoomIndicator';
   indicator.style.cssText = `
     position: absolute;
-    bottom: 100px;
-    right: 12px;
+    bottom: 70px;
+    left: 12px;
     background: rgba(15,15,26,0.9);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 8px;
-    padding: 8px 12px;
-    font-size: 12px;
+    padding: 6px 10px;
+    font-size: 11px;
     color: #ccc;
-    z-index: 1000;
+    z-index: 900;
     font-weight: 600;
     cursor: pointer;
+    text-align: center;
   `;
 
   const mapContainer = document.getElementById('map');

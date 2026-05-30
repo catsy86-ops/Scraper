@@ -106,36 +106,56 @@ function initMap() {
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors',
       maxZoom: 19
+    });
+
+    // CARTO Voyager — colourful, modern default
+    const voyagerLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap © CARTO',
+      subdomains: 'abcd',
+      maxZoom: 20
     }).addTo(map);
 
-    // CARTO Voyager as alternative basemap
-    const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', {
+    // CARTO Dark — for night / dark theme
+    const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap © CARTO',
       subdomains: 'abcd',
       maxZoom: 20
     });
 
+    // CARTO Light — clean, minimal
+    const lightLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap © CARTO',
+      subdomains: 'abcd',
+      maxZoom: 20
+    });
+
+    // Esri satellite imagery
     const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       attribution: '© Esri',
       maxZoom: 18
     });
 
-    // If OSM fails to load tiles, fall back to CARTO
-    let osmErrors = 0;
-    osmLayer.on('tileerror', () => {
-      osmErrors++;
-      if (osmErrors === 4 && !map.hasLayer(cartoLayer)) {
-        console.warn('⚠️ OSM tiles failing, switching to CARTO');
-        map.removeLayer(osmLayer);
-        cartoLayer.addTo(map);
-        state.currentBaseLayer = 'street';
-        state.baseLayers.street = cartoLayer;
+    // If Voyager fails to load tiles, fall back to OSM
+    let voyagerErrors = 0;
+    voyagerLayer.on('tileerror', () => {
+      voyagerErrors++;
+      if (voyagerErrors === 4 && !map.hasLayer(osmLayer)) {
+        console.warn('⚠️ CARTO tiles failing, switching to OpenStreetMap');
+        map.removeLayer(voyagerLayer);
+        osmLayer.addTo(map);
+        state.currentBaseLayer = 'osm';
       }
     });
 
-    // Store layers for switching
-    state.baseLayers = { street: osmLayer, carto: cartoLayer, satellite: satelliteLayer };
-    state.currentBaseLayer = 'street';
+    // Store layers for switching (keys used by the style switcher UI)
+    state.baseLayers = {
+      voyager: voyagerLayer,
+      dark: darkLayer,
+      light: lightLayer,
+      satellite: satelliteLayer,
+      osm: osmLayer
+    };
+    state.currentBaseLayer = 'voyager';
 
     // Add controls
     L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -150,30 +170,7 @@ function initMap() {
     // Add POI markers
     if (APP_DATA && APP_DATA.places) {
       APP_DATA.places.forEach(place => {
-        const iconHtml = `
-          <div style="width:40px;height:40px;background:${CAT_COLORS[place.cat]};border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.4);border:2px solid rgba(255,255,255,0.3);font-size:18px;">
-            <div style="transform:rotate(45deg);">${place.emoji}</div>
-          </div>
-        `;
-        const icon = L.divIcon({
-          html: iconHtml,
-          iconSize: [40, 40],
-          iconAnchor: [20, 40],
-          popupAnchor: [0, -40],
-          className: 'leaflet-marker-custom'
-        });
-
-        const marker = L.marker([place.coords[1], place.coords[0]], { icon: icon });
-        marker.placeData = place; // Store reference for filtering
-        marker.bindPopup(`
-          <div style="font-size:12px;min-width:200px;">
-            <div style="color:${CAT_COLORS[place.cat]};font-weight:bold;margin-bottom:4px;">${place.cat.toUpperCase()}</div>
-            <strong>${place.name}</strong><br>
-            📍 ${place.addr}<br>
-            ${place.desc.substring(0, 80)}...<br>
-            <button onclick="openPlaceModal(${place.id})" style="padding:6px 12px;background:${CAT_COLORS[place.cat]};color:white;border:none;border-radius:4px;cursor:pointer;margin-top:8px;font-weight:bold;">📍 Szczegóły</button>
-          </div>
-        `);
+        const marker = createPoiMarker(place);
         marker.addTo(map);
         state.markers.push(marker);
       });
@@ -196,8 +193,6 @@ function initMap() {
     state.map = map;
 
     // CRITICAL: force Leaflet to recalculate container size so tiles load.
-    // ResizeObserver reacts to the real moment the container gets its size
-    // (after splash hides / section becomes visible) → fixes "gray map".
     map.invalidateSize(true);
     if (typeof ResizeObserver !== 'undefined') {
       const ro = new ResizeObserver(() => {
@@ -211,7 +206,11 @@ function initMap() {
     map.whenReady(() => setTimeout(() => map.invalidateSize(true), 50));
     window.addEventListener('resize', () => map.invalidateSize());
 
-    showToast('✅ Mapa OpenStreetMap załadowana!');
+    // Initialize premium map features (style switcher, geolocation, etc.)
+    if (window.mapPro && window.mapPro.init) {
+      window.mapPro.init(map);
+    }
+
     console.log('✨ Mapa Leaflet gotowa! Wysokość kontenera:', mapContainer.clientHeight);
 
   } catch (err) {
@@ -220,17 +219,92 @@ function initMap() {
   }
 }
 
-// ===== FILTER MARKERS (Leaflet) =====
+// ===== CREATE RICH POI MARKER =====
+function createPoiMarker(place) {
+  const PE = window.placesEnhanced;
+  const status = PE ? PE.getOpenStatus(place) : null;
+  const statusDot = status
+    ? `<span class="mk-status ${status.open ? 'open' : 'closed'}"></span>`
+    : '';
+
+  const iconHtml = `
+    <div class="mk-wrap" data-cat="${place.cat}">
+      <div class="mk-pin" style="background:${CAT_COLORS[place.cat]}">
+        <span class="mk-emoji">${place.emoji}</span>
+      </div>
+      ${statusDot}
+      <div class="mk-pulse" style="border-color:${CAT_COLORS[place.cat]}"></div>
+    </div>
+  `;
+  const icon = L.divIcon({
+    html: iconHtml,
+    iconSize: [44, 44],
+    iconAnchor: [22, 44],
+    popupAnchor: [0, -44],
+    className: 'leaflet-marker-custom'
+  });
+
+  const marker = L.marker([place.coords[1], place.coords[0]], {
+    icon: icon,
+    riseOnHover: true
+  });
+  marker.placeData = place;
+
+  const stars = PE ? PE.renderStars(place.rating || 0) : '';
+  const statusBadge = status
+    ? `<span class="pp-status ${status.open ? 'open' : 'closed'}">${status.open ? '🟢 Otwarte' : '🔴 Zamknięte'}</span>`
+    : '';
+
+  marker.bindPopup(`
+    <div class="map-popup">
+      <div class="pp-head" style="background:${place.gradient || CAT_COLORS[place.cat]}">
+        <span class="pp-emoji">${place.emoji}</span>
+        ${statusBadge}
+      </div>
+      <div class="pp-body">
+        <div class="pp-cat" style="color:${CAT_COLORS[place.cat]}">${place.cat.toUpperCase()}</div>
+        <div class="pp-name">${place.name}</div>
+        <div class="pp-rating"><span class="pp-stars">${stars}</span> <b>${place.rating || '–'}</b></div>
+        <div class="pp-addr">📍 ${place.addr}</div>
+        <div class="pp-actions">
+          <button class="pp-btn primary" onclick="openPlaceModal(${place.id})">Szczegóły</button>
+          <button class="pp-btn" onclick="openGoogleMaps(${place.coords[1]},${place.coords[0]})">🧭</button>
+        </div>
+      </div>
+    </div>
+  `, { maxWidth: 260, minWidth: 220, closeButton: true, className: 'map-popup-wrapper' });
+
+  return marker;
+}
+
+// ===== FILTER MARKERS (Leaflet, cluster-aware) =====
 function filterMarkers(cat) {
   if (!state.map) return;
   state.currentCat = cat;
+
+  const clusterGroup = (window.mapEnhancements && window.mapEnhancements.getClusterGroup)
+    ? window.mapEnhancements.getClusterGroup()
+    : null;
+
   state.markers.forEach(marker => {
     const place = marker.placeData;
     if (!place) return;
-    if (cat === 'all' || place.cat === cat) {
-      if (!state.map.hasLayer(marker)) marker.addTo(state.map);
+    const show = (cat === 'all' || place.cat === cat);
+
+    if (clusterGroup) {
+      // Cluster mode: add/remove from the cluster group
+      if (show) {
+        if (!clusterGroup.hasLayer(marker)) clusterGroup.addLayer(marker);
+      } else {
+        if (clusterGroup.hasLayer(marker)) clusterGroup.removeLayer(marker);
+      }
     } else {
-      if (state.map.hasLayer(marker)) state.map.removeLayer(marker);
+      // Normal mode: add/remove from map
+      if (show) {
+        if (!state.map.hasLayer(marker)) marker.addTo(state.map);
+      } else {
+        if (state.map.hasLayer(marker)) state.map.removeLayer(marker);
+      }
     }
   });
 }
@@ -240,67 +314,7 @@ function initMapControls() {
   const map = state.map;
   if (!map) return;
 
-  // 3D toggle — Leaflet is 2D only, show toast
-  const btn3D = document.getElementById('btn3D');
-  if (btn3D) {
-    btn3D.addEventListener('click', () => {
-      showToast('ℹ️ Leaflet obsługuje widok 2D. Użyj Google Street View dla 3D.');
-    });
-    btn3D.classList.remove('active');
-  }
-
-  // Satellite toggle
-  const btnSatellite = document.getElementById('btnSatellite');
-  if (btnSatellite) {
-    btnSatellite.addEventListener('click', () => {
-      if (state.currentBaseLayer !== 'satellite') {
-        map.removeLayer(state.baseLayers[state.currentBaseLayer]);
-        state.baseLayers.satellite.addTo(map);
-        state.currentBaseLayer = 'satellite';
-        btnSatellite.classList.add('active');
-        document.getElementById('btnMapStreet').classList.remove('active');
-        showToast('🛰️ Widok satelitarny');
-        setTimeout(() => map.invalidateSize(), 100);
-      }
-    });
-  }
-
-  // Street view toggle
-  const btnMapStreet = document.getElementById('btnMapStreet');
-  if (btnMapStreet) {
-    btnMapStreet.addEventListener('click', () => {
-      if (state.currentBaseLayer === 'satellite') {
-        map.removeLayer(state.baseLayers.satellite);
-        state.baseLayers.street.addTo(map);
-        state.currentBaseLayer = 'street';
-        btnMapStreet.classList.add('active');
-        document.getElementById('btnSatellite').classList.remove('active');
-        showToast('🗺️ Widok uliczny');
-        setTimeout(() => map.invalidateSize(), 100);
-      }
-    });
-  }
-
-  // Locate
-  const btnLocate = document.getElementById('btnLocate');
-  if (btnLocate) {
-    btnLocate.addEventListener('click', () => {
-      if (!navigator.geolocation) {
-        showToast('❌ Geolokalizacja niedostępna');
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          map.setView([pos.coords.latitude, pos.coords.longitude], 16, { animate: true });
-          showToast('📍 Znaleziono Twoją lokalizację');
-        },
-        () => {
-          map.setView([53.4025, 14.5520], 15, { animate: true });
-          showToast('📍 Powrót do centrum dzielnicy');
-        }
-      );
-    });
-  }
+  // 3D toggle — removed (handled via style switcher / Street View)
 
   // Fly animation (rotate around center)
   const btnFly = document.getElementById('btnFly');
@@ -314,7 +328,7 @@ function initMapControls() {
         return;
       }
       btnFly.classList.add('active');
-      showToast('✈️ Animacja lotu uruchomiona');
+      showToast('✈️ Lot wokół dzielnicy uruchomiony');
       let zoom = map.getZoom();
       let step = 0;
       const center = [53.4025, 14.5520];

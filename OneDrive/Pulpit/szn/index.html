@@ -39,6 +39,11 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 
+  <!-- Leaflet MarkerCluster plugin (smart grouping of markers) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+
   <!-- Suppress noisy third-party deprecation warnings (Firefox/Google Maps) -->
   <script>
     const originalWarn = console.warn;
@@ -164,13 +169,9 @@
             <!-- Street View will be rendered here by Google Maps API -->
           </div>
 
-          <!-- Map Controls -->
+          <!-- Map Controls (streamlined — styles handled by 🎨 switcher, locate by 🎯 FAB) -->
           <div class="map-controls">
-            <button class="map-ctrl-btn active" id="btn3D" title="Widok 3D">3D</button>
-            <button class="map-ctrl-btn" id="btnSatellite" title="Satelita">🛰️</button>
-            <button class="map-ctrl-btn" id="btnMapStreet" title="Ulice">🗺️</button>
-            <button class="map-ctrl-btn" id="btnLocate" title="Moja lokalizacja">📍</button>
-            <button class="map-ctrl-btn" id="btnFly" title="Animacja lotu">✈️</button>
+            <button class="map-ctrl-btn" id="btnFly" title="Animacja lotu wokół dzielnicy">✈️</button>
             <button class="map-ctrl-btn" id="btnStreetView" title="Street View (Google)">📸</button>
           </div>
 
@@ -700,6 +701,7 @@
   <script src="map-fix.js"></script>
   <script src="map-enhancements.js"></script>
   <script src="map-improvements.js"></script>
+  <script src="map-pro.js"></script>
   <script src="pogon-mascot.js"></script>
   <script src="app.js"></script>
   <script src="live.js"></script>

@@ -9,6 +9,7 @@ const MAP_ENHANCEMENTS = {
   heatmapEnabled: false,
   heatmapLayer: null,
   clusteringEnabled: false,
+  clusterGroup: null,
   routingLine: null,
   measurementMode: false,
   measurementPoints: [],
@@ -62,17 +63,56 @@ function toggleActivityHeatmap() {
   showToast('🔥 Mapa ciepła aktywności włączona');
 }
 
-// ===== CLUSTERING: Group nearby markers =====
+// ===== CLUSTERING: Real marker clustering via Leaflet.markercluster =====
 function enableMarkerClustering() {
   const map = window.state && window.state.map;
   if (!map) return;
 
-  // Simple visual clustering — zoom to show all markers grouped
-  const bounds = L.latLngBounds(
-    window.state.markers.map(m => m.getLatLng())
-  );
-  map.fitBounds(bounds, { padding: [40, 40] });
-  showToast('📍 Widok wszystkich markerów');
+  // Toggle off
+  if (MAP_ENHANCEMENTS.clusteringEnabled && MAP_ENHANCEMENTS.clusterGroup) {
+    map.removeLayer(MAP_ENHANCEMENTS.clusterGroup);
+    MAP_ENHANCEMENTS.clusterGroup = null;
+    MAP_ENHANCEMENTS.clusteringEnabled = false;
+    // Re-add individual markers
+    window.state.markers.forEach(m => {
+      if (!map.hasLayer(m)) m.addTo(map);
+    });
+    showToast('📍 Grupowanie wyłączone');
+    return;
+  }
+
+  if (typeof L.markerClusterGroup !== 'function') {
+    // Fallback: just fit bounds to all markers
+    const bounds = L.latLngBounds(window.state.markers.map(m => m.getLatLng()));
+    map.fitBounds(bounds, { padding: [40, 40] });
+    showToast('📍 Widok wszystkich markerów');
+    return;
+  }
+
+  const cluster = L.markerClusterGroup({
+    showCoverageOnHover: false,
+    maxClusterRadius: 60,
+    spiderfyOnMaxZoom: true,
+    iconCreateFunction: c => {
+      const count = c.getChildCount();
+      return L.divIcon({
+        html: `<div class="cluster-bubble">${count}</div>`,
+        className: 'cluster-icon',
+        iconSize: [40, 40]
+      });
+    }
+  });
+
+  // Move markers into cluster
+  window.state.markers.forEach(m => {
+    if (map.hasLayer(m)) map.removeLayer(m);
+    cluster.addLayer(m);
+  });
+  map.addLayer(cluster);
+
+  MAP_ENHANCEMENTS.clusterGroup = cluster;
+  MAP_ENHANCEMENTS.clusteringEnabled = true;
+  showToast('📍 Grupowanie markerów włączone');
 }
 
 // ===== ROUTING: Draw line between two POI =====
@@ -231,5 +271,7 @@ window.mapEnhancements = {
   routing: enableRouting,
   measurement: enableMeasurementMode,
   export: exportMapAsImage,
-  geofences: addGeofences
+  geofences: addGeofences,
+  getClusterGroup: () => MAP_ENHANCEMENTS.clusterGroup,
+  isClustering: () => MAP_ENHANCEMENTS.clusteringEnabled
 };

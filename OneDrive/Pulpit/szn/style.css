@@ -2198,3 +2198,173 @@ body {
 }
 .qr-inner img { display: block; border-radius: 6px; }
 .qr-inner p { color: #333; font-size: 12px; margin-top: 10px; line-height: 1.4; }
+
+/* ===================================================== */
+/* ===== MAP PRO — premium UI/UX ======================= */
+/* ===================================================== */
+
+/* ----- Rich POI markers ----- */
+.mk-wrap { position: relative; width: 44px; height: 44px; }
+.mk-pin {
+  position: absolute; top: 0; left: 2px;
+  width: 40px; height: 40px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+  border: 2.5px solid rgba(255,255,255,0.9);
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  cursor: pointer;
+}
+.mk-emoji { transform: rotate(45deg); font-size: 18px; line-height: 1; }
+.leaflet-marker-custom:hover .mk-pin {
+  transform: rotate(-45deg) scale(1.18);
+  z-index: 1000;
+}
+.mk-status {
+  position: absolute; top: -2px; right: -2px; z-index: 2;
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.mk-status.open { background: #43e97b; }
+.mk-status.closed { background: #ff6584; }
+.mk-pulse {
+  position: absolute; top: 4px; left: 6px;
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 2px solid; opacity: 0; pointer-events: none;
+  animation: mkPulse 2.4s ease-out infinite;
+}
+@keyframes mkPulse {
+  0% { transform: scale(0.6); opacity: 0.7; }
+  70% { opacity: 0; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* ----- Rich map popup ----- */
+.map-popup-wrapper .leaflet-popup-content-wrapper {
+  padding: 0 !important; overflow: hidden; border-radius: 14px !important;
+}
+.map-popup-wrapper .leaflet-popup-content { margin: 0 !important; width: auto !important; }
+.map-popup { width: 220px; overflow: hidden; }
+.pp-head {
+  height: 64px; display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.pp-emoji { font-size: 34px; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3)); }
+.pp-status {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 50px;
+  backdrop-filter: blur(4px);
+}
+.pp-status.open { background: rgba(67,233,123,0.92); color: #08321b; }
+.pp-status.closed { background: rgba(255,101,132,0.92); color: #3a0d18; }
+.pp-body { padding: 12px 14px; }
+.pp-cat { font-size: 9px; font-weight: 800; letter-spacing: 1px; margin-bottom: 2px; }
+.pp-name { font-size: 15px; font-weight: 700; margin-bottom: 4px; color: var(--text); }
+.pp-rating { font-size: 12px; margin-bottom: 4px; }
+.pp-stars { color: #ffd93d; letter-spacing: 1px; }
+.pp-addr { font-size: 11px; color: var(--text2); margin-bottom: 10px; }
+.pp-actions { display: flex; gap: 6px; }
+.pp-btn {
+  flex: 1; border: 1px solid var(--border); background: var(--surface);
+  color: var(--text); border-radius: 8px; padding: 7px; font-size: 12px;
+  font-weight: 600; cursor: pointer; transition: var(--transition);
+}
+.pp-btn.primary { flex: 2; background: var(--accent); color: #fff; border-color: var(--accent); }
+.pp-btn:hover { opacity: 0.88; }
+
+/* ----- Style switcher ----- */
+.style-switcher {
+  position: absolute; top: 120px; right: 12px; z-index: 1000;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+}
+.ss-toggle {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: rgba(15,15,26,0.92); backdrop-filter: blur(12px);
+  border: 1px solid var(--border); color: #fff; font-size: 20px;
+  cursor: pointer; transition: var(--transition);
+  box-shadow: var(--shadow-sm);
+}
+.ss-toggle:hover { background: var(--accent); transform: scale(1.06); }
+.ss-options {
+  display: flex; flex-direction: column; gap: 6px;
+  background: rgba(15,15,26,0.95); backdrop-filter: blur(16px);
+  border: 1px solid var(--border); border-radius: 14px; padding: 8px;
+  box-shadow: var(--shadow); transition: all 0.28s cubic-bezier(0.34,1.56,0.64,1);
+  transform-origin: top right;
+}
+.style-switcher.collapsed .ss-options {
+  opacity: 0; transform: scale(0.8); pointer-events: none;
+}
+.ss-opt {
+  display: flex; align-items: center; gap: 10px;
+  background: transparent; border: none; color: var(--text2);
+  padding: 8px 12px; border-radius: 9px; cursor: pointer;
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+  transition: var(--transition); min-width: 130px;
+}
+.ss-opt:hover { background: var(--surface2); color: var(--text); }
+.ss-opt.active { background: var(--accent); color: #fff; }
+.ss-icon { font-size: 16px; }
+
+/* ----- Floating action buttons ----- */
+.map-fab-group {
+  position: absolute; right: 12px; bottom: 130px; z-index: 1000;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.map-fab {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: rgba(15,15,26,0.92); backdrop-filter: blur(12px);
+  border: 1px solid var(--border); color: #fff; font-size: 18px;
+  cursor: pointer; transition: var(--transition);
+  box-shadow: var(--shadow-sm);
+  display: flex; align-items: center; justify-content: center;
+}
+.map-fab:hover { background: var(--accent); transform: scale(1.08); }
+.map-fab:active { transform: scale(0.94); }
+
+/* ----- User location marker ----- */
+.user-location-icon { background: transparent !important; border: none !important; }
+.user-dot { position: relative; width: 24px; height: 24px; }
+.user-dot-core {
+  position: absolute; top: 6px; left: 6px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #4285f4; border: 2.5px solid #fff;
+  box-shadow: 0 0 6px rgba(66,133,244,0.8); z-index: 2;
+}
+.user-dot-pulse {
+  position: absolute; top: 0; left: 0;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: rgba(66,133,244,0.4);
+  animation: userPulse 1.8s ease-out infinite;
+}
+@keyframes userPulse {
+  0% { transform: scale(0.5); opacity: 1; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+/* ----- Cluster icon ----- */
+.cluster-icon { background: transparent; }
+.cluster-bubble {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: linear-gradient(135deg, #6c63ff, #ff6584); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 15px;
+  border: 3px solid rgba(255,255,255,0.85);
+  box-shadow: 0 4px 14px rgba(108,99,255,0.5);
+}
+
+/* ----- Light theme adjustments for floating controls ----- */
+[data-theme="light"] .ss-toggle,
+[data-theme="light"] .map-fab,
+[data-theme="light"] .ss-options {
+  background: rgba(255,255,255,0.95); color: var(--text);
+}
+[data-theme="light"] .ss-toggle:hover,
+[data-theme="light"] .map-fab:hover { color: #fff; }
+
+/* Mobile: tuck floating controls so they don't overlap */
+@media (max-width: 480px) {
+  .style-switcher { top: 70px; }
+  .map-fab-group { bottom: 150px; }
+}
