@@ -82,7 +82,7 @@ function initZoomIndicator() {
   update();
 
   indicator.addEventListener('click', () => {
-    map.setView([53.4025, 14.5520], 15, { animate: true });
+    map.setView([53.4530, 14.5520], 15, { animate: true });
     showToast('🎯 Powrót do centrum');
   });
 }

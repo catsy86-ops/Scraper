@@ -102,10 +102,10 @@ function initMap() {
     mapContainer.style.animation = '';
     mapContainer.innerHTML = '';
 
-    // Initialize Leaflet map centered on Łucznicza/Tarczowa
+    // Initialize Leaflet map centered on Niebuszewo, Szczecin
     const map = L.map('map', {
       zoomControl: false
-    }).setView([53.4025, 14.5520], 15);
+    }).setView([53.4530, 14.5520], 15);
 
     // Base tile layers — NO crossOrigin (it breaks tile display if the
     // tile server doesn't send CORS headers → tiles load but show blank/gray).
@@ -167,10 +167,10 @@ function initMap() {
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     L.control.scale({ position: 'bottomleft', metric: true, imperial: false }).addTo(map);
 
-    // Area highlight rectangle
+    // Area highlight rectangle — Niebuszewo
     L.rectangle(
-      [[53.4005, 14.5490], [53.4055, 14.5555]],
-      { color: '#6c63ff', weight: 2, opacity: 0.5, fill: true, fillColor: '#6c63ff', fillOpacity: 0.06, dashArray: '4, 2' }
+      [[53.4472, 14.5431], [53.4623, 14.5710]],
+      { color: '#6c63ff', weight: 2, opacity: 0.4, fill: true, fillColor: '#6c63ff', fillOpacity: 0.04, dashArray: '4, 2' }
     ).addTo(map);
 
     // Add POI markers
@@ -337,7 +337,7 @@ function initMapControls() {
       showToast('✈️ Lot wokół dzielnicy uruchomiony');
       let zoom = map.getZoom();
       let step = 0;
-      const center = [53.4025, 14.5520];
+      const center = [53.4530, 14.5520];
       const radius = 0.003;
       state.flyInterval = setInterval(() => {
         step += 0.02;
@@ -582,7 +582,7 @@ function requestUserLocation(callback) {
     },
     () => {
       // Fallback: use district center
-      PE.setUserLocation(53.4025, 14.5520);
+      PE.setUserLocation(53.4530, 14.5520);
       showToast('📍 Używam centrum dzielnicy jako punktu odniesienia');
       if (callback) callback();
     }

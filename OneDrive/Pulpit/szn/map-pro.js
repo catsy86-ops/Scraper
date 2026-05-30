@@ -447,7 +447,7 @@ document.addEventListener('fullscreenchange', () => {
 // ===== RESET VIEW =====
 function resetView() {
   if (!MAP_PRO.map) return;
-  MAP_PRO.map.flyTo([53.4025, 14.5520], 15, { animate: true, duration: 1 });
+  MAP_PRO.map.flyTo([53.4530, 14.5520], 15, { animate: true, duration: 1 });
   showToast('🏹 Powrót do centrum dzielnicy');
 }
 
