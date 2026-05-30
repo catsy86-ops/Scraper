@@ -1,6 +1,6 @@
 // Service Worker — Szczecin Guide PWA
-// v3 — Leaflet edition. Network-first for code so deploys take effect immediately.
-const CACHE_NAME = 'szczecin-guide-v3-leaflet';
+// v4 — Leaflet edition. Network-first for code so deploys take effect immediately.
+const CACHE_NAME = 'szczecin-guide-v4-leaflet';
 const ASSETS = [
   '/',
   '/index.html',
