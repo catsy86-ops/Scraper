@@ -1,15 +1,16 @@
 /**
- * Map UX Improvements Module (Leaflet Edition)
- * - Interactive legend with visibility controls
- * - Zoom level indicator
- * - Smart POI distance sorting
+ * Map UX Improvements — Leaflet Edition
+ * - Interactive legend with POI counts
+ * - Animated zoom indicator
+ * - Animated route drawing
+ * - Mini overview map
  */
-
 'use strict';
 
 const MAP_IMPROVEMENTS = {
   legendExpanded: true,
-  hiddenCategories: new Set()
+  hiddenCategories: new Set(),
+  routeAnimInterval: null
 };
 
 // ===== INTERACTIVE LEGEND =====
@@ -17,92 +18,68 @@ function initInteractiveLegend() {
   const mapLegend = document.getElementById('mapLegend');
   if (!mapLegend) return;
 
-  // Make legend items clickable to toggle visibility
   mapLegend.querySelectorAll('.legend-item').forEach(item => {
     const dot = item.querySelector('.legend-dot');
     if (!dot) return;
     const category = Array.from(dot.classList).find(c => c !== 'legend-dot');
     if (!category) return;
-
     item.style.cursor = 'pointer';
     item.style.userSelect = 'none';
     item.title = `Kliknij aby ukryć ${category}`;
-
-    item.addEventListener('click', () => {
-      toggleCategoryVisibility(category, item);
-    });
+    item.addEventListener('click', () => toggleCategoryVisibility(category, item));
   });
 }
 
 function toggleCategoryVisibility(category, legendItem) {
-  const map = window.state && window.state.map;
+  const map = window.state?.map;
   if (!map) return;
 
   if (MAP_IMPROVEMENTS.hiddenCategories.has(category)) {
     MAP_IMPROVEMENTS.hiddenCategories.delete(category);
-    // Show markers of this category
-    window.state.markers.forEach(marker => {
-      if (marker.placeData && marker.placeData.cat === category) {
-        if (!map.hasLayer(marker)) marker.addTo(map);
-      }
+    window.state.markers.forEach(m => {
+      if (m.placeData?.cat === category && !map.hasLayer(m)) m.addTo(map);
     });
-    if (legendItem) {
-      legendItem.style.opacity = '1';
-      legendItem.title = `Kliknij aby ukryć ${category}`;
-    }
+    if (legendItem) { legendItem.style.opacity = '1'; legendItem.title = `Kliknij aby ukryć ${category}`; }
     showToast(`👁️ ${category.toUpperCase()} — widoczne`);
   } else {
     MAP_IMPROVEMENTS.hiddenCategories.add(category);
-    // Hide markers of this category
-    window.state.markers.forEach(marker => {
-      if (marker.placeData && marker.placeData.cat === category) {
-        if (map.hasLayer(marker)) map.removeLayer(marker);
-      }
+    window.state.markers.forEach(m => {
+      if (m.placeData?.cat === category && map.hasLayer(m)) map.removeLayer(m);
     });
-    if (legendItem) {
-      legendItem.style.opacity = '0.4';
-      legendItem.title = `Kliknij aby pokazać ${category}`;
-    }
+    if (legendItem) { legendItem.style.opacity = '0.35'; legendItem.title = `Kliknij aby pokazać ${category}`; }
     showToast(`👁️ ${category.toUpperCase()} — ukryte`);
   }
 }
 
-// ===== ZOOM LEVEL INDICATOR =====
+// ===== ZOOM INDICATOR =====
 function initZoomIndicator() {
-  const map = window.state && window.state.map;
+  const map = window.state?.map;
   if (!map) return;
 
   const indicator = document.createElement('div');
   indicator.id = 'zoomIndicator';
-  indicator.style.cssText = `
-    position: absolute;
-    bottom: 70px;
-    left: 12px;
-    background: rgba(15,15,26,0.9);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 8px;
-    padding: 6px 10px;
-    font-size: 11px;
-    color: #ccc;
-    z-index: 900;
-    font-weight: 600;
-    cursor: pointer;
-    text-align: center;
-  `;
+  indicator.className = 'zoom-indicator';
+  document.getElementById('map')?.appendChild(indicator);
 
-  const mapContainer = document.getElementById('map');
-  if (mapContainer) mapContainer.appendChild(indicator);
+  const zoomNames = [
+    [0,  12,   '🌍 Kontynent'],
+    [12, 13.5, '🏙️ Miasto'],
+    [13.5,15,  '🏘️ Dzielnica'],
+    [15, 16.5, '🏠 Osiedle'],
+    [16.5,18,  '🔎 Ulica'],
+    [18, 22,   '📍 Budynek']
+  ];
 
-  function updateZoom() {
-    const zoom = map.getZoom();
-    const zoomLevel = Math.round(zoom * 10) / 10;
-    const level = zoom < 14 ? '🔍 Oddalone' : zoom < 15.5 ? '📍 Ogólne' : zoom < 17 ? '🎯 Szczegóły' : '🔎 Blisko';
-    indicator.innerHTML = `<div style="color:#6c63ff;margin-bottom:2px;">🔍 ${zoomLevel}</div><div>${level}</div>`;
+  function update() {
+    const z = map.getZoom();
+    const entry = zoomNames.find(([min, max]) => z >= min && z < max) || zoomNames[zoomNames.length - 1];
+    indicator.innerHTML = `
+      <div class="zi-zoom">${z.toFixed(1)}</div>
+      <div class="zi-label">${entry[2]}</div>`;
   }
 
-  map.on('zoomend', updateZoom);
-  updateZoom();
+  map.on('zoomend', update);
+  update();
 
   indicator.addEventListener('click', () => {
     map.setView([53.4025, 14.5520], 15, { animate: true });
@@ -110,86 +87,101 @@ function initZoomIndicator() {
   });
 }
 
-// ===== SMART POI DISTANCE SORTING =====
-function initDistanceSorting() {
-  const placesSection = document.getElementById('section-places');
-  if (!placesSection) return;
+// ===== ANIMATED ROUTE DRAWING =====
+// Called from showRouteOnMap — draws route with animation
+function animateRoute(routeId) {
+  const map = window.state?.map;
+  if (!map || !APP_DATA?.routes) return;
 
-  const sortBtn = document.createElement('button');
-  sortBtn.id = 'sortByDistanceBtn';
-  sortBtn.textContent = '📍 Sortuj wg odległości';
-  sortBtn.style.cssText = `
-    background: var(--accent, #6c63ff);
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 12px;
-    margin-top: 12px;
-  `;
+  const route = APP_DATA.routes.find(r => r.id === routeId);
+  if (!route) return;
 
-  const filterTabs = placesSection.querySelector('.filter-tabs');
-  if (filterTabs) {
-    filterTabs.parentNode.insertBefore(sortBtn, filterTabs.nextSibling);
+  // Clear previous animation
+  if (MAP_IMPROVEMENTS.routeAnimInterval) {
+    clearInterval(MAP_IMPROVEMENTS.routeAnimInterval);
+    MAP_IMPROVEMENTS.routeAnimInterval = null;
   }
 
-  sortBtn.addEventListener('click', () => {
-    if (!navigator.geolocation) {
-      showToast('📍 Geolokalizacja niedostępna');
+  // Remove old animated line
+  if (MAP_IMPROVEMENTS.animatedLine) {
+    map.removeLayer(MAP_IMPROVEMENTS.animatedLine);
+  }
+
+  const coords = route.coords.map(c => [c[1], c[0]]);
+  let drawn = [];
+  let i = 0;
+
+  MAP_IMPROVEMENTS.animatedLine = L.polyline([], {
+    color: route.color,
+    weight: 6,
+    opacity: 0.9,
+    lineCap: 'round',
+    lineJoin: 'round'
+  }).addTo(map);
+
+  // Animate drawing point by point
+  MAP_IMPROVEMENTS.routeAnimInterval = setInterval(() => {
+    if (i >= coords.length) {
+      clearInterval(MAP_IMPROVEMENTS.routeAnimInterval);
+      MAP_IMPROVEMENTS.routeAnimInterval = null;
+      // Add start/end markers
+      addRouteEndpoints(route, coords);
       return;
     }
-    showToast('🔄 Pobieranie lokalizacji...');
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        const userLat = pos.coords.latitude;
-        const userLng = pos.coords.longitude;
-        const sorted = [...APP_DATA.places].sort((a, b) => {
-          const dA = calcDist(userLat, userLng, a.coords[1], a.coords[0]);
-          const dB = calcDist(userLat, userLng, b.coords[1], b.coords[0]);
-          return dA - dB;
-        });
-        showToast(`📍 Posortowano po odległości (${sorted.length} miejsc)`);
-      },
-      () => showToast('❌ Brak dostępu do lokalizacji')
-    );
+    drawn.push(coords[i]);
+    MAP_IMPROVEMENTS.animatedLine.setLatLngs(drawn);
+    i++;
+  }, 60);
+}
+
+function addRouteEndpoints(route, coords) {
+  const map = window.state?.map;
+  if (!map) return;
+
+  const startIcon = L.divIcon({
+    html: `<div class="route-endpoint start" style="background:${route.color}">▶</div>`,
+    iconSize: [28, 28], iconAnchor: [14, 14], className: ''
   });
+  const endIcon = L.divIcon({
+    html: `<div class="route-endpoint end" style="background:${route.color}">🏁</div>`,
+    iconSize: [28, 28], iconAnchor: [14, 14], className: ''
+  });
+
+  const startM = L.marker(coords[0], { icon: startIcon }).addTo(map);
+  const endM = L.marker(coords[coords.length - 1], { icon: endIcon }).addTo(map);
+  startM.bindPopup(`<b>Start:</b> ${route.stops?.[0]?.name || 'Start'}`);
+  endM.bindPopup(`<b>Meta:</b> ${route.stops?.[route.stops.length - 1]?.name || 'Meta'}`);
+
+  // Store for cleanup
+  if (!MAP_IMPROVEMENTS.routeMarkers) MAP_IMPROVEMENTS.routeMarkers = [];
+  MAP_IMPROVEMENTS.routeMarkers.forEach(m => map.removeLayer(m));
+  MAP_IMPROVEMENTS.routeMarkers = [startM, endM];
 }
 
-function calcDist(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-// ===== INITIALIZE ALL IMPROVEMENTS =====
+// ===== INITIALIZE =====
 function initMapImprovements() {
   const checkMap = setInterval(() => {
-    if (window.state && window.state.map) {
+    if (window.state?.map) {
       clearInterval(checkMap);
       setTimeout(() => {
         initInteractiveLegend();
         initZoomIndicator();
-        initDistanceSorting();
       }, 500);
     }
   }, 200);
 }
 
-// Auto-init when document is ready
 document.addEventListener('DOMContentLoaded', () => {
-  const waitForApp = setInterval(() => {
-    if (window.state && document.getElementById('app') && !document.getElementById('app').classList.contains('hidden')) {
-      clearInterval(waitForApp);
+  const wait = setInterval(() => {
+    if (window.state && !document.getElementById('app')?.classList.contains('hidden')) {
+      clearInterval(wait);
       initMapImprovements();
     }
   }, 500);
 });
 
-// Export
 window.mapImprovements = {
   initMapImprovements,
-  toggleCategoryVisibility
+  toggleCategoryVisibility,
+  animateRoute
 };

@@ -1068,18 +1068,20 @@ function showRouteOnMap(id) {
   navigateTo('map');
 
   setTimeout(() => {
-    // Highlight selected route, dim others
+    // Dim all route polylines
     state.routePolylines.forEach(polyline => {
-      if (polyline.routeId === id) {
-        polyline.setStyle({ weight: 7, opacity: 1, dashArray: null, color: route.color });
-      } else {
-        polyline.setStyle({ weight: 3, opacity: 0.25, dashArray: '8, 4' });
-      }
+      polyline.setStyle({ weight: 3, opacity: 0.2, dashArray: '8, 4' });
     });
 
     // Fit bounds to route
     const latLngs = route.coords.map(c => [c[1], c[0]]);
     state.map.fitBounds(L.latLngBounds(latLngs), { padding: [60, 60], animate: true });
+
+    // Animate route drawing
+    if (window.mapImprovements?.animateRoute) {
+      setTimeout(() => window.mapImprovements.animateRoute(id), 400);
+    }
+
     showToast(`${route.emoji} ${route.name} · ${route.distance}`);
   }, 200);
 }
