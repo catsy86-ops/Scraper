@@ -1,0 +1,1 @@
+ALTER TABLE public.listings ADD COLUMN is_promoted boolean NOT NULL DEFAULT false;
