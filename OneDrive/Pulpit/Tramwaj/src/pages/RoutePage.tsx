@@ -871,6 +871,7 @@ const RoutePage = () => {
             })}
           </motion.div>
         </motion.section>
+      </div>
     </AppLayout>
   );
 };
