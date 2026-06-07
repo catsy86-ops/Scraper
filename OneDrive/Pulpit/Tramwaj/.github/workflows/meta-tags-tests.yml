@@ -1,0 +1,288 @@
+name: Meta tags tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  unit:
+    name: Unit tests (Vitest – useMetaTags)
+    runs-on: ubuntu-latest
+    outputs:
+      total: ${{ steps.summary.outputs.total }}
+      passed: ${{ steps.summary.outputs.passed }}
+      failed: ${{ steps.summary.outputs.failed }}
+      skipped: ${{ steps.summary.outputs.skipped }}
+      duration: ${{ steps.summary.outputs.duration }}
+      status: ${{ steps.summary.outputs.status }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run useMetaTags unit tests (JUnit + JSON reporters)
+        id: vitest
+        run: |
+          mkdir -p reports
+          bunx vitest run src/hooks/use-meta-tags.test.tsx \
+            --reporter=default \
+            --reporter=junit \
+            --reporter=json \
+            --outputFile.junit=reports/vitest-junit.xml \
+            --outputFile.json=reports/vitest-results.json
+
+      - name: Compute Vitest summary
+        id: summary
+        if: always()
+        run: |
+          node -e "
+            const fs = require('fs');
+            let total=0, passed=0, failed=0, skipped=0, duration=0;
+            try {
+              const j = JSON.parse(fs.readFileSync('reports/vitest-results.json','utf8'));
+              total = j.numTotalTests ?? 0;
+              passed = j.numPassedTests ?? 0;
+              failed = j.numFailedTests ?? 0;
+              skipped = j.numPendingTests ?? 0;
+              duration = Math.round(((j.testResults||[]).reduce((a,r)=>a+((r.endTime||0)-(r.startTime||0)),0))/10)/100;
+            } catch(e) { console.error('No JSON report:', e.message); }
+            const status = failed === 0 && total > 0 ? 'success' : 'failure';
+            const out = process.env.GITHUB_OUTPUT;
+            fs.appendFileSync(out, \`total=\${total}\npassed=\${passed}\nfailed=\${failed}\nskipped=\${skipped}\nduration=\${duration}\nstatus=\${status}\n\`);
+            const sum = process.env.GITHUB_STEP_SUMMARY;
+            fs.appendFileSync(sum, \`### Vitest – useMetaTags\n\n| Total | Passed | Failed | Skipped | Duration |\n|------:|-------:|-------:|--------:|---------:|\n| \${total} | \${passed} | \${failed} | \${skipped} | \${duration}s |\n\`);
+          "
+
+      - name: Publish unit test summary
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Vitest – useMetaTags
+          path: reports/vitest-junit.xml
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Upload unit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-reports
+          path: reports/
+
+  e2e:
+    name: E2E tests (Playwright – /route/:id meta)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      total: ${{ steps.summary.outputs.total }}
+      passed: ${{ steps.summary.outputs.passed }}
+      failed: ${{ steps.summary.outputs.failed }}
+      skipped: ${{ steps.summary.outputs.skipped }}
+      duration: ${{ steps.summary.outputs.duration }}
+      status: ${{ steps.summary.outputs.status }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Build app
+        run: bun run build
+
+      - name: Run Playwright meta-tag specs
+        env:
+          CI: "true"
+          PLAYWRIGHT_JUNIT_OUTPUT_NAME: results.xml
+        run: |
+          bunx playwright test \
+            tests/route-share-meta.spec.ts \
+            tests/route-meta-navigation.spec.ts \
+            --reporter=list,html,junit
+        continue-on-error: true
+
+      - name: Compute Playwright summary
+        id: summary
+        if: always()
+        run: |
+          node -e "
+            const fs = require('fs');
+            let total=0, passed=0, failed=0, skipped=0, duration=0;
+            try {
+              const xml = fs.readFileSync('results.xml','utf8');
+              const m = xml.match(/<testsuites[^>]*>/);
+              if (m) {
+                const attr = (k) => { const r = new RegExp(k+'=\"([^\"]+)\"').exec(m[0]); return r?Number(r[1]):0; };
+                total = attr('tests');
+                failed = attr('failures') + attr('errors');
+                skipped = attr('skipped');
+                passed = total - failed - skipped;
+                duration = Math.round(attr('time')*100)/100;
+              }
+            } catch(e) { console.error('No JUnit:', e.message); }
+            const status = failed === 0 && total > 0 ? 'success' : 'failure';
+            const out = process.env.GITHUB_OUTPUT;
+            fs.appendFileSync(out, \`total=\${total}\npassed=\${passed}\nfailed=\${failed}\nskipped=\${skipped}\nduration=\${duration}\nstatus=\${status}\n\`);
+            const sum = process.env.GITHUB_STEP_SUMMARY;
+            fs.appendFileSync(sum, \`### Playwright – meta tags\n\n| Total | Passed | Failed | Skipped | Duration |\n|------:|-------:|-------:|--------:|---------:|\n| \${total} | \${passed} | \${failed} | \${skipped} | \${duration}s |\n\`);
+          "
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload Playwright JUnit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-junit
+          path: results.xml
+          if-no-files-found: ignore
+
+      - name: Publish Playwright summary
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Playwright – meta tags
+          path: results.xml
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Fail job if Playwright tests failed
+        if: always() && steps.summary.outputs.status == 'failure'
+        run: exit 1
+
+  pr-comment:
+    name: PR comment – test results
+    if: github.event_name == 'pull_request'
+    needs: [unit, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build comment body
+        id: body
+        run: |
+          icon() { [ "$1" = "success" ] && echo "✅ pass" || echo "❌ fail"; }
+          U_STATUS="${{ needs.unit.result }}"
+          E_STATUS="${{ needs.e2e.result }}"
+          OVERALL="✅ All green"
+          if [ "$U_STATUS" != "success" ] || [ "$E_STATUS" != "success" ]; then
+            OVERALL="❌ Some tests failed"
+          fi
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          {
+            echo "body<<EOF"
+            echo "<!-- meta-tags-tests-comment -->"
+            echo "## 🧪 Meta tags – CI results"
+            echo ""
+            echo "**Status:** $OVERALL"
+            echo ""
+            echo "| Suite | Status | Total | Passed | Failed | Skipped | Duration |"
+            echo "|-------|:------:|------:|-------:|-------:|--------:|---------:|"
+            echo "| Vitest (useMetaTags) | $(icon ${{ needs.unit.outputs.status }}) | ${{ needs.unit.outputs.total }} | ${{ needs.unit.outputs.passed }} | ${{ needs.unit.outputs.failed }} | ${{ needs.unit.outputs.skipped }} | ${{ needs.unit.outputs.duration }}s |"
+            echo "| Playwright (/route/:id) | $(icon ${{ needs.e2e.outputs.status }}) | ${{ needs.e2e.outputs.total }} | ${{ needs.e2e.outputs.passed }} | ${{ needs.e2e.outputs.failed }} | ${{ needs.e2e.outputs.skipped }} | ${{ needs.e2e.outputs.duration }}s |"
+            echo ""
+            echo "📦 Artefakty: \`vitest-reports\`, \`playwright-report\`, \`playwright-junit\`"
+            echo "🔗 [Pełny log workflow]($RUN_URL)"
+            echo ""
+            echo "<sub>Commit: \`${{ github.event.pull_request.head.sha }}\` · Aktualizowane na żywo przy każdym pushu.</sub>"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upsert PR comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: meta-tags-tests
+          message: ${{ steps.body.outputs.body }}
+
+  status-badge:
+    name: Update live status badge
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [unit, e2e]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Update README live status block
+        run: |
+          U="${{ needs.unit.outputs.status }}"
+          E="${{ needs.e2e.outputs.status }}"
+          OVERALL_COLOR="brightgreen"; OVERALL_TXT="passing"
+          if [ "$U" != "success" ] || [ "$E" != "success" ]; then
+            OVERALL_COLOR="red"; OVERALL_TXT="failing"
+          fi
+          UC=$([ "$U" = "success" ] && echo brightgreen || echo red)
+          EC=$([ "$E" = "success" ] && echo brightgreen || echo red)
+          NOW=$(date -u +"%Y-%m-%d %H:%M UTC")
+          REPO="${{ github.repository }}"
+          RUN_URL="${{ github.server_url }}/$REPO/actions/runs/${{ github.run_id }}"
+
+          BLOCK=$(cat <<EOF
+          <!-- ci-status:start -->
+          ## 🟢 Live CI status
+
+          ![Meta tags tests](https://img.shields.io/badge/meta--tags%20tests-${OVERALL_TXT}-${OVERALL_COLOR}?style=flat-square)
+          ![Vitest](https://img.shields.io/badge/vitest-${{ needs.unit.outputs.passed }}%2F${{ needs.unit.outputs.total }}-${UC}?style=flat-square&logo=vitest)
+          ![Playwright](https://img.shields.io/badge/playwright-${{ needs.e2e.outputs.passed }}%2F${{ needs.e2e.outputs.total }}-${EC}?style=flat-square&logo=playwright)
+
+          | Suite | Passed | Failed | Skipped | Duration |
+          |-------|-------:|-------:|--------:|---------:|
+          | Vitest (useMetaTags) | ${{ needs.unit.outputs.passed }}/${{ needs.unit.outputs.total }} | ${{ needs.unit.outputs.failed }} | ${{ needs.unit.outputs.skipped }} | ${{ needs.unit.outputs.duration }}s |
+          | Playwright (/route/:id) | ${{ needs.e2e.outputs.passed }}/${{ needs.e2e.outputs.total }} | ${{ needs.e2e.outputs.failed }} | ${{ needs.e2e.outputs.skipped }} | ${{ needs.e2e.outputs.duration }}s |
+
+          _Ostatnia aktualizacja: ${NOW} · [workflow run](${RUN_URL})_
+          <!-- ci-status:end -->
+          EOF
+          )
+
+          if grep -q "<!-- ci-status:start -->" README.md; then
+            awk -v block="$BLOCK" '
+              BEGIN{p=1}
+              /<!-- ci-status:start -->/{print block; p=0; next}
+              /<!-- ci-status:end -->/{p=1; next}
+              p{print}
+            ' README.md > README.new && mv README.new README.md
+          else
+            printf "\n%s\n" "$BLOCK" >> README.md
+          fi
+
+      - name: Commit README update
+        run: |
+          if git diff --quiet README.md; then
+            echo "No changes to README"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "chore(ci): update live test status [skip ci]"
+          git push
